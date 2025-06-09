@@ -28,7 +28,10 @@ namespace WawaEditor
                 TextBox = new FastTextBox();
                 TextBox.Dock = DockStyle.Fill;
                 TextBox.AcceptsTab = true;
+                
+                // 使用默认字体，稍后会由MainForm应用配置中的字体
                 TextBox.Font = new Font("Consolas", 10);
+                
                 TextBox.WordWrap = false;
                 TextBox.ScrollBars = RichTextBoxScrollBars.Both;
                 TextBox.Text = "";
@@ -225,7 +228,7 @@ namespace WawaEditor
                 TextBox.WordWrap = enabled;
                 
                 // 输出调试信息
-                System.Diagnostics.Debug.WriteLine($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
+                Logger.Log($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
             }
         }
 

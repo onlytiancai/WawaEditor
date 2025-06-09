@@ -10,6 +10,9 @@ public partial class MainForm : Form
 
     public MainForm()
     {
+        // 确保配置已加载
+        LoadAndValidateConfig();
+        
         InitializeComponent();
         
         // 恢复正常窗体样式
@@ -27,18 +30,63 @@ public partial class MainForm : Form
         // 恢复上次打开的标签页或添加新标签页
         RestoreLastOpenedTabs();
         
-        // 输出调试信息
-        System.Diagnostics.Debug.WriteLine($"配置加载: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}");
+        // 再次应用字体设置，确保所有标签页都使用正确的字体
+        foreach (TabPage tabPage in tabControl.TabPages)
+        {
+            if (tabPage is TextEditorTabPage tab)
+            {
+                ApplyFontToTab(tab);
+            }
+        }
+    }
+    
+    // 加载并验证配置
+    private void LoadAndValidateConfig()
+    {
+        // 输出配置信息
+        Logger.Log($"配置加载: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}, FontSize={AppConfig.Instance.FontSize}");
+        
+        // 验证字体设置
+        try
+        {
+            if (!string.IsNullOrEmpty(AppConfig.Instance.FontFamily) && AppConfig.Instance.FontSize > 0)
+            {
+                // 尝试创建字体对象，验证字体设置是否有效
+                using (Font font = new Font(AppConfig.Instance.FontFamily, AppConfig.Instance.FontSize))
+                {
+                    Logger.Log($"字体验证成功: {font.Name}, {font.Size}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"字体验证失败: {ex.Message}，使用默认字体");
+            // 字体无效，使用默认字体
+            AppConfig.Instance.FontFamily = "Consolas";
+            AppConfig.Instance.FontSize = 10;
+        }
+        
+        // 强制保存配置，确保配置文件存在
+        AppConfig.Instance.Save();
     }
     
     // 应用配置到UI
     private void ApplyConfigToUI()
     {
         // 输出配置信息
-        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}");
+        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}, FontSize={AppConfig.Instance.FontSize}");
         
         // 应用配置到菜单项
         wordWrapToolStripMenuItem.Checked = AppConfig.Instance.WordWrap;
+        
+        // 应用字体设置到已打开的标签页
+        foreach (TabPage tabPage in tabControl.TabPages)
+        {
+            if (tabPage is TextEditorTabPage tab)
+            {
+                ApplyFontToTab(tab);
+            }
+        }
     }
 
     // 窗口关闭前保存配置
@@ -95,6 +143,9 @@ public partial class MainForm : Form
             tabControl.TabPages.Add(tab);
             tabControl.SelectedTab = tab;
 
+            // 先应用字体设置，再加载内容
+            ApplyFontToTab(tab);
+            
             // Load file content if needed
             if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
@@ -130,24 +181,6 @@ public partial class MainForm : Form
                 // 应用全局设置
                 tab.SetWordWrap(AppConfig.Instance.WordWrap);
                 
-                // 应用字体设置 - 确保使用正确的字体
-                try
-                {
-                    string fontFamily = AppConfig.Instance.FontFamily;
-                    float fontSize = AppConfig.Instance.FontSize;
-                    
-                    // 确保字体设置有效
-                    if (!string.IsNullOrEmpty(fontFamily) && fontSize > 0)
-                    {
-                        Font font = new Font(fontFamily, fontSize);
-                        tab.SetFont(font);
-                    }
-                }
-                catch (Exception ex) 
-                { 
-                    System.Diagnostics.Debug.WriteLine($"字体设置错误: {ex.Message}");
-                }
-                
                 // 更新菜单状态
                 wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
                 
@@ -161,6 +194,52 @@ public partial class MainForm : Form
         {
             MessageBox.Show($"Error creating new tab: {ex.Message}", "Error",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+    
+    // 应用字体设置到标签页
+    private void ApplyFontToTab(TextEditorTabPage tab)
+    {
+        if (tab?.TextBox == null) return;
+        
+        try
+        {
+            string fontFamily = AppConfig.Instance.FontFamily;
+            float fontSize = AppConfig.Instance.FontSize;
+            
+            Logger.Log($"应用字体设置: {fontFamily}, {fontSize}");
+            
+            // 确保字体设置有效
+            if (!string.IsNullOrEmpty(fontFamily) && fontSize > 0)
+            {
+                // 强制创建新的字体对象
+                Font font = new Font(fontFamily, fontSize);
+                
+                // 直接设置TextBox的字体，而不是通过SetFont方法
+                if (tab.TextBox != null)
+                {
+                    // 先保存当前文本和选择位置
+                    string text = tab.TextBox.Text;
+                    int selectionStart = tab.TextBox.SelectionStart;
+                    int selectionLength = tab.TextBox.SelectionLength;
+                    
+                    // 设置字体
+                    tab.TextBox.Font = font;
+                    
+                    // 恢复文本和选择位置（有时设置字体会清空文本）
+                    if (string.IsNullOrEmpty(tab.TextBox.Text) && !string.IsNullOrEmpty(text))
+                    {
+                        tab.TextBox.Text = text;
+                        tab.TextBox.Select(selectionStart, selectionLength);
+                    }
+                    
+                    Logger.Log($"字体已应用: {tab.TextBox.Font.Name}, {tab.TextBox.Font.Size}");
+                }
+            }
+        }
+        catch (Exception ex) 
+        { 
+            Logger.Log($"字体设置错误: {ex.Message}");
         }
     }
 
@@ -285,7 +364,26 @@ public partial class MainForm : Form
 
         using (FontDialog fontDialog = new FontDialog())
         {
-            fontDialog.Font = currentTab.TextBox.Font;
+            // 使用配置中的字体初始化对话框
+            try
+            {
+                string fontFamily = AppConfig.Instance.FontFamily;
+                float fontSize = AppConfig.Instance.FontSize;
+                
+                if (!string.IsNullOrEmpty(fontFamily) && fontSize > 0)
+                {
+                    fontDialog.Font = new Font(fontFamily, fontSize);
+                }
+                else
+                {
+                    fontDialog.Font = currentTab.TextBox.Font;
+                }
+            }
+            catch
+            {
+                fontDialog.Font = currentTab.TextBox.Font;
+            }
+            
             if (fontDialog.ShowDialog() == DialogResult.OK)
             {
                 // 保存字体设置到配置
@@ -293,12 +391,14 @@ public partial class MainForm : Form
                 AppConfig.Instance.FontSize = fontDialog.Font.Size;
                 AppConfig.Instance.Save();
                 
+                Logger.Log($"保存字体设置: {fontDialog.Font.FontFamily.Name}, {fontDialog.Font.Size}");
+                
                 // 应用到所有标签页
                 foreach (TabPage tabPage in tabControl.TabPages)
                 {
                     if (tabPage is TextEditorTabPage tab)
                     {
-                        tab.SetFont(fontDialog.Font);
+                        ApplyFontToTab(tab);
                     }
                 }
             }
@@ -310,7 +410,7 @@ public partial class MainForm : Form
         bool newState = !wordWrapToolStripMenuItem.Checked;
         wordWrapToolStripMenuItem.Checked = newState;
         
-        System.Diagnostics.Debug.WriteLine($"切换自动换行: {newState}");
+        Logger.Log($"切换自动换行: {newState}");
         
         // 保存设置到配置
         AppConfig.Instance.WordWrap = newState;
@@ -562,7 +662,7 @@ public partial class MainForm : Form
             if (tabPage is TextEditorTabPage tab && !string.IsNullOrEmpty(tab.FilePath) && File.Exists(tab.FilePath))
             {
                 AppConfig.Instance.LastOpenedTabs.Add(tab.FilePath);
-                System.Diagnostics.Debug.WriteLine($"保存标签页: {tab.FilePath}");
+                Logger.Log($"保存标签页: {tab.FilePath}");
             }
         }
         
@@ -570,11 +670,11 @@ public partial class MainForm : Form
         try
         {
             AppConfig.Instance.Save();
-            System.Diagnostics.Debug.WriteLine($"配置保存成功，共保存了 {AppConfig.Instance.LastOpenedTabs.Count} 个标签页");
+            Logger.Log($"配置保存成功，共保存了 {AppConfig.Instance.LastOpenedTabs.Count} 个标签页");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"配置保存失败: {ex.Message}");
+            Logger.Log($"配置保存失败: {ex.Message}");
         }
     }
     

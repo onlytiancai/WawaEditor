@@ -35,60 +35,91 @@ namespace WawaEditor
             }
         }
         
-        // 私有构造函数，防止外部实例化
-        private AppConfig() { }
+        // 公共无参构造函数，用于JSON反序列化
+        public AppConfig() { }
         
         // 加载配置
         private static AppConfig Load()
         {
-            System.Diagnostics.Debug.WriteLine($"尝试加载配置文件: {ConfigFilePath}");
+            Logger.Log($"尝试加载配置文件: {ConfigFilePath}");
             
             try
             {
                 if (File.Exists(ConfigFilePath))
                 {
                     string json = File.ReadAllText(ConfigFilePath);
-                    System.Diagnostics.Debug.WriteLine($"读取到配置内容: {json}");
+                    Logger.Log($"读取到配置内容: {json}");
                     
                     if (!string.IsNullOrWhiteSpace(json))
                     {
-                        var options = new JsonSerializerOptions { 
-                            PropertyNameCaseInsensitive = true,
-                            ReadCommentHandling = JsonCommentHandling.Skip
-                        };
-                        
-                        var config = JsonSerializer.Deserialize<AppConfig>(json, options);
-                        if (config != null)
+                        try
                         {
-                            // 确保配置中的所有属性都被正确加载
-                            // 如果配置文件中缺少某些属性，使用默认值
-                            if (string.IsNullOrEmpty(config.FontFamily))
-                                config.FontFamily = "Consolas";
-                            if (config.FontSize <= 0)
-                                config.FontSize = 10;
-                            if (config.RecentFiles == null)
-                                config.RecentFiles = new List<string>();
-                            if (config.LastOpenedTabs == null)
-                                config.LastOpenedTabs = new List<string>();
+                            // 使用简单的字典方式解析JSON，避免反序列化问题
+                            var jsonDoc = JsonDocument.Parse(json);
+                            var root = jsonDoc.RootElement;
+                            
+                            var config = new AppConfig();
+                            
+                            // 手动提取属性
+                            if (root.TryGetProperty("WordWrap", out var wordWrapProp) && wordWrapProp.ValueKind == JsonValueKind.True)
+                                config.WordWrap = true;
                                 
-                            System.Diagnostics.Debug.WriteLine($"配置加载成功: WordWrap={config.WordWrap}, FontFamily={config.FontFamily}, LastOpenedTabs.Count={config.LastOpenedTabs.Count}");
+                            if (root.TryGetProperty("FontFamily", out var fontFamilyProp) && fontFamilyProp.ValueKind == JsonValueKind.String)
+                                config.FontFamily = fontFamilyProp.GetString() ?? "Consolas";
+                                
+                            if (root.TryGetProperty("FontSize", out var fontSizeProp) && fontSizeProp.ValueKind == JsonValueKind.Number)
+                                config.FontSize = fontSizeProp.GetSingle();
+                                
+                            // 提取最近文件列表
+                            if (root.TryGetProperty("RecentFiles", out var recentFilesProp) && recentFilesProp.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var item in recentFilesProp.EnumerateArray())
+                                {
+                                    if (item.ValueKind == JsonValueKind.String)
+                                    {
+                                        string? path = item.GetString();
+                                        if (!string.IsNullOrEmpty(path))
+                                            config.RecentFiles.Add(path);
+                                    }
+                                }
+                            }
+                            
+                            // 提取上次打开的标签页
+                            if (root.TryGetProperty("LastOpenedTabs", out var lastOpenedTabsProp) && lastOpenedTabsProp.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var item in lastOpenedTabsProp.EnumerateArray())
+                                {
+                                    if (item.ValueKind == JsonValueKind.String)
+                                    {
+                                        string? path = item.GetString();
+                                        if (!string.IsNullOrEmpty(path))
+                                            config.LastOpenedTabs.Add(path);
+                                    }
+                                }
+                            }
+                            
+                            Logger.Log($"配置加载成功: WordWrap={config.WordWrap}, FontFamily={config.FontFamily}, LastOpenedTabs.Count={config.LastOpenedTabs.Count}");
                             return config;
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log($"JSON解析失败: {ex.Message}");
                         }
                     }
                 }
                 
-                System.Diagnostics.Debug.WriteLine("配置文件不存在或为空，使用默认配置");
+                Logger.Log("配置文件不存在或为空，使用默认配置");
             }
             catch (Exception ex)
             {
                 // 加载失败时记录错误，但继续使用默认配置
-                System.Diagnostics.Debug.WriteLine($"加载配置失败: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"异常堆栈: {ex.StackTrace}");
+                Logger.Log($"加载配置失败: {ex.Message}");
+                Logger.Log($"异常堆栈: {ex.StackTrace}");
             }
             
             // 返回默认配置
             var defaultConfig = new AppConfig();
-            System.Diagnostics.Debug.WriteLine($"使用默认配置: WordWrap={defaultConfig.WordWrap}");
+            Logger.Log($"使用默认配置: WordWrap={defaultConfig.WordWrap}");
             return defaultConfig;
         }
         
@@ -115,13 +146,13 @@ namespace WawaEditor
                 // 写入文件
                 File.WriteAllText(ConfigFilePath, json);
                 
-                System.Diagnostics.Debug.WriteLine($"配置已保存到: {ConfigFilePath}");
-                System.Diagnostics.Debug.WriteLine($"配置内容: WordWrap={WordWrap}, FontFamily={FontFamily}, LastOpenedTabs.Count={LastOpenedTabs.Count}");
+                Logger.Log($"配置已保存到: {ConfigFilePath}");
+                Logger.Log($"配置内容: WordWrap={WordWrap}, FontFamily={FontFamily}, LastOpenedTabs.Count={LastOpenedTabs.Count}");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"保存配置失败: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"异常堆栈: {ex.StackTrace}");
+                Logger.Log($"保存配置失败: {ex.Message}");
+                Logger.Log($"异常堆栈: {ex.StackTrace}");
             }
         }
         
