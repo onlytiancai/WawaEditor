@@ -32,8 +32,10 @@ namespace WawaEditor
                 // 使用默认字体，稍后会由MainForm应用配置中的字体
                 TextBox.Font = new Font("Consolas", 10);
                 
-                TextBox.WordWrap = false;
-                TextBox.ScrollBars = RichTextBoxScrollBars.Both;
+                // 根据配置设置自动换行
+                bool wordWrap = AppConfig.Instance.WordWrap;
+                TextBox.WordWrap = wordWrap;
+                TextBox.ScrollBars = wordWrap ? RichTextBoxScrollBars.ForcedVertical : RichTextBoxScrollBars.Both;
                 TextBox.Text = "";
                 
                 // 添加右键菜单
@@ -219,16 +221,31 @@ namespace WawaEditor
         {
             if (TextBox != null)
             {
-                // 先设置滚动条，再设置自动换行
-                if (enabled)
-                    TextBox.ScrollBars = RichTextBoxScrollBars.ForcedVertical;
-                else
-                    TextBox.ScrollBars = RichTextBoxScrollBars.Both;
+                // 先暂停布局
+                TextBox.SuspendLayout();
                 
-                TextBox.WordWrap = enabled;
-                
-                // 输出调试信息
-                Logger.Log($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
+                try
+                {
+                    // 设置自动换行
+                    TextBox.WordWrap = enabled;
+                    
+                    // 然后设置滚动条
+                    if (enabled)
+                        TextBox.ScrollBars = RichTextBoxScrollBars.ForcedVertical;
+                    else
+                        TextBox.ScrollBars = RichTextBoxScrollBars.Both;
+                    
+                    // 强制刷新
+                    TextBox.Refresh();
+                    
+                    // 输出调试信息
+                    Logger.Log($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
+                }
+                finally
+                {
+                    // 恢复布局
+                    TextBox.ResumeLayout();
+                }
             }
         }
 
@@ -363,6 +380,9 @@ namespace WawaEditor
             this.MaxLength = int.MaxValue;
             this.DetectUrls = false;
             this.HideSelection = false;
+            
+            // 禁用自动调整大小，避免自动换行问题
+            this.AutoSize = false;
         }
         
         // 添加BeginUpdate和EndUpdate方法减少重绘

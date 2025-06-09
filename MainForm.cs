@@ -74,17 +74,21 @@ public partial class MainForm : Form
     private void ApplyConfigToUI()
     {
         // 输出配置信息
-        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}, FontSize={AppConfig.Instance.FontSize}");
+        Logger.Log($"应用配置: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}, FontSize={AppConfig.Instance.FontSize}");
         
         // 应用配置到菜单项
         wordWrapToolStripMenuItem.Checked = AppConfig.Instance.WordWrap;
         
-        // 应用字体设置到已打开的标签页
+        // 应用配置到已打开的标签页
         foreach (TabPage tabPage in tabControl.TabPages)
         {
             if (tabPage is TextEditorTabPage tab)
             {
+                // 应用字体设置
                 ApplyFontToTab(tab);
+                
+                // 应用自动换行设置
+                tab.SetWordWrap(AppConfig.Instance.WordWrap);
             }
         }
     }
@@ -407,7 +411,10 @@ public partial class MainForm : Form
 
     private void wordWrapToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        bool newState = !wordWrapToolStripMenuItem.Checked;
+        // 直接切换状态，不依赖当前Checked属性
+        bool newState = !AppConfig.Instance.WordWrap;
+        
+        // 设置菜单项选中状态
         wordWrapToolStripMenuItem.Checked = newState;
         
         Logger.Log($"切换自动换行: {newState}");
@@ -423,6 +430,22 @@ public partial class MainForm : Form
             {
                 tab.SetWordWrap(newState);
             }
+        }
+        
+        // 强制刷新当前标签页
+        TextEditorTabPage currentTab = GetCurrentTab();
+        if (currentTab?.TextBox != null)
+        {
+            // 保存当前位置
+            int selectionStart = currentTab.TextBox.SelectionStart;
+            int selectionLength = currentTab.TextBox.SelectionLength;
+            
+            // 强制刷新
+            currentTab.TextBox.Refresh();
+            
+            // 恢复位置
+            currentTab.TextBox.Select(selectionStart, selectionLength);
+            currentTab.TextBox.Focus();
         }
     }
 

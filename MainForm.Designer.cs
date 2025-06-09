@@ -174,7 +174,7 @@ partial class MainForm
         fontToolStripMenuItem.Click += new EventHandler(fontToolStripMenuItem_Click);
         
         // wordWrapToolStripMenuItem
-        wordWrapToolStripMenuItem.CheckOnClick = true;
+        wordWrapToolStripMenuItem.CheckOnClick = false; // 禁用自动切换，由事件处理程序手动控制
         wordWrapToolStripMenuItem.Name = "wordWrapToolStripMenuItem";
         wordWrapToolStripMenuItem.Size = new Size(152, 22);
         wordWrapToolStripMenuItem.Text = "&Word Wrap";
