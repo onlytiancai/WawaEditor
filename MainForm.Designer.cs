@@ -32,6 +32,7 @@ partial class MainForm
         fileToolStripMenuItem = new ToolStripMenuItem();
         newToolStripMenuItem = new ToolStripMenuItem();
         openToolStripMenuItem = new ToolStripMenuItem();
+        recentFilesToolStripMenuItem = new ToolStripMenuItem();
         saveToolStripMenuItem = new ToolStripMenuItem();
         saveAsToolStripMenuItem = new ToolStripMenuItem();
         toolStripSeparator1 = new ToolStripSeparator();
@@ -50,6 +51,7 @@ partial class MainForm
         lineNumbersToolStripMenuItem = new ToolStripMenuItem();
         tabControl = new TabControl();
         statusStrip = new StatusStrip();
+        toolStrip = new ToolStrip();
         menuStrip.SuspendLayout();
         SuspendLayout();
         
@@ -62,10 +64,15 @@ partial class MainForm
         menuStrip.Text = "menuStrip1";
         
         // fileToolStripMenuItem
-        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { newToolStripMenuItem, openToolStripMenuItem, saveToolStripMenuItem, saveAsToolStripMenuItem, toolStripSeparator1, closeTabToolStripMenuItem, toolStripSeparator2, exitToolStripMenuItem });
+        fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { newToolStripMenuItem, openToolStripMenuItem, recentFilesToolStripMenuItem, saveToolStripMenuItem, saveAsToolStripMenuItem, toolStripSeparator1, closeTabToolStripMenuItem, toolStripSeparator2, exitToolStripMenuItem });
         fileToolStripMenuItem.Name = "fileToolStripMenuItem";
         fileToolStripMenuItem.Size = new Size(37, 20);
         fileToolStripMenuItem.Text = "&File";
+        
+        // recentFilesToolStripMenuItem
+        recentFilesToolStripMenuItem.Name = "recentFilesToolStripMenuItem";
+        recentFilesToolStripMenuItem.Size = new Size(186, 22);
+        recentFilesToolStripMenuItem.Text = "Recent Files";
         
         // newToolStripMenuItem
         newToolStripMenuItem.Name = "newToolStripMenuItem";
@@ -185,10 +192,10 @@ partial class MainForm
         
         // tabControl
         tabControl.Dock = DockStyle.Fill;
-        tabControl.Location = new Point(0, 24);
+        tabControl.Location = new Point(0, 49);
         tabControl.Name = "tabControl";
         tabControl.SelectedIndex = 0;
-        tabControl.Size = new Size(800, 404);
+        tabControl.Size = new Size(800, 379);
         tabControl.TabIndex = 1;
         tabControl.SelectedIndexChanged += new EventHandler(tabControl_SelectedIndexChanged);
         
@@ -199,12 +206,30 @@ partial class MainForm
         statusStrip.TabIndex = 2;
         statusStrip.Text = "statusStrip1";
         
+        // toolStrip
+        toolStrip.Items.AddRange(new ToolStripItem[] {
+            new ToolStripButton("New", null, new EventHandler(newToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.Application.ToBitmap() },
+            new ToolStripButton("Open", null, new EventHandler(openToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.WinLogo.ToBitmap() },
+            new ToolStripButton("Save", null, new EventHandler(saveToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.Shield.ToBitmap() },
+            new ToolStripSeparator(),
+            new ToolStripButton("Undo", null, new EventHandler(undoToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.Question.ToBitmap() },
+            new ToolStripButton("Redo", null, new EventHandler(redoToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.Information.ToBitmap() },
+            new ToolStripSeparator(),
+            new ToolStripButton("Find", null, new EventHandler(findToolStripMenuItem_Click)) { DisplayStyle = ToolStripItemDisplayStyle.Image, Image = SystemIcons.Exclamation.ToBitmap() }
+        });
+        toolStrip.Location = new Point(0, 24);
+        toolStrip.Name = "toolStrip";
+        toolStrip.Size = new Size(800, 25);
+        toolStrip.TabIndex = 3;
+        toolStrip.Text = "toolStrip1";
+        
         // Form1
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(800, 450);
         Controls.Add(tabControl);
         Controls.Add(statusStrip);
+        Controls.Add(toolStrip);
         Controls.Add(menuStrip);
         MainMenuStrip = menuStrip;
         Name = "Form1";
@@ -221,6 +246,7 @@ partial class MainForm
     private ToolStripMenuItem fileToolStripMenuItem;
     private ToolStripMenuItem newToolStripMenuItem;
     private ToolStripMenuItem openToolStripMenuItem;
+    private ToolStripMenuItem recentFilesToolStripMenuItem;
     private ToolStripMenuItem saveToolStripMenuItem;
     private ToolStripMenuItem saveAsToolStripMenuItem;
     private ToolStripSeparator toolStripSeparator1;
@@ -239,4 +265,5 @@ partial class MainForm
     private ToolStripMenuItem lineNumbersToolStripMenuItem;
     private TabControl tabControl;
     private StatusStrip statusStrip;
+    private ToolStrip toolStrip;
 }
