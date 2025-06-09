@@ -2,12 +2,12 @@ using System.Text;
 
 namespace WawaEditor;
 
-public partial class Form1 : Form
+public partial class MainForm : Form
 {
     private FindReplaceDialog _findReplaceDialog;
     private ToolStripStatusLabel statusLabel;
 
-    public Form1()
+    public MainForm()
     {
         InitializeComponent();
         this.Text = "WawaEditor";

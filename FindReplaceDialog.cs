@@ -2,10 +2,10 @@ namespace WawaEditor
 {
     public partial class FindReplaceDialog : Form
     {
-        private readonly Form1 _mainForm;
+        private readonly MainForm _mainForm;
         private bool _isReplace;
 
-        public FindReplaceDialog(Form1 mainForm, bool isReplace = false)
+        public FindReplaceDialog(MainForm mainForm, bool isReplace = false)
         {
             InitializeComponent();
             _mainForm = mainForm;
