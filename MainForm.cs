@@ -28,18 +28,17 @@ public partial class MainForm : Form
         RestoreLastOpenedTabs();
         
         // 输出调试信息
-        System.Diagnostics.Debug.WriteLine($"配置加载: WordWrap={AppConfig.Instance.WordWrap}, ShowLineNumbers={AppConfig.Instance.ShowLineNumbers}, FontFamily={AppConfig.Instance.FontFamily}");
+        System.Diagnostics.Debug.WriteLine($"配置加载: WordWrap={AppConfig.Instance.WordWrap}, FontFamily={AppConfig.Instance.FontFamily}");
     }
     
     // 应用配置到UI
     private void ApplyConfigToUI()
     {
         // 输出配置信息
-        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}, ShowLineNumbers={AppConfig.Instance.ShowLineNumbers}");
+        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}");
         
         // 应用配置到菜单项
         wordWrapToolStripMenuItem.Checked = AppConfig.Instance.WordWrap;
-        lineNumbersToolStripMenuItem.Checked = AppConfig.Instance.ShowLineNumbers;
     }
 
     // 窗口关闭前保存配置
@@ -130,7 +129,6 @@ public partial class MainForm : Form
             {
                 // 应用全局设置
                 tab.SetWordWrap(AppConfig.Instance.WordWrap);
-                tab.ToggleLineNumbers(AppConfig.Instance.ShowLineNumbers);
                 
                 // 应用字体设置 - 确保使用正确的字体
                 try
@@ -152,7 +150,6 @@ public partial class MainForm : Form
                 
                 // 更新菜单状态
                 wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
-                lineNumbersToolStripMenuItem.Checked = tab.ShowLineNumbers;
                 
                 tab.TextBox.Focus();
                 
@@ -329,27 +326,6 @@ public partial class MainForm : Form
         }
     }
 
-    private void lineNumbersToolStripMenuItem_Click(object sender, EventArgs e)
-    {
-        bool newState = !lineNumbersToolStripMenuItem.Checked;
-        lineNumbersToolStripMenuItem.Checked = newState;
-        
-        System.Diagnostics.Debug.WriteLine($"切换行号显示: {newState}");
-        
-        // 保存设置到配置
-        AppConfig.Instance.ShowLineNumbers = newState;
-        AppConfig.Instance.Save();
-
-        // 应用到所有标签页
-        foreach (TabPage tabPage in tabControl.TabPages)
-        {
-            if (tabPage is TextEditorTabPage tab)
-            {
-                tab.ToggleLineNumbers(newState);
-            }
-        }
-    }
-
     private void undoToolStripMenuItem_Click(object sender, EventArgs e)
     {
         TextEditorTabPage currentTab = GetCurrentTab();
@@ -426,7 +402,6 @@ public partial class MainForm : Form
         {
             // Update UI based on current tab settings
             wordWrapToolStripMenuItem.Checked = currentTab.TextBox.WordWrap;
-            lineNumbersToolStripMenuItem.Checked = currentTab.ShowLineNumbers;
 
             // 更新状态栏信息
             currentTab.UpdateStatusInfo();
@@ -510,6 +485,7 @@ public partial class MainForm : Form
             statusLabel.Text = statusText;
         }
     }
+    
     // 初始化最近文件菜单
     private void InitializeRecentFilesMenu()
     {
@@ -626,5 +602,5 @@ public partial class MainForm : Form
         {
             AddNewTab();
         }
-    }    
+    }
 }

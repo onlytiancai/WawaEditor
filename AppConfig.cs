@@ -19,7 +19,6 @@ namespace WawaEditor
         
         // 其他配置项
         public bool WordWrap { get; set; } = false;
-        public bool ShowLineNumbers { get; set; } = false; // 默认不显示行号
         public string FontFamily { get; set; } = "Consolas";
         public float FontSize { get; set; } = 10;
         
@@ -72,7 +71,7 @@ namespace WawaEditor
                             if (config.LastOpenedTabs == null)
                                 config.LastOpenedTabs = new List<string>();
                                 
-                            System.Diagnostics.Debug.WriteLine($"配置加载成功: WordWrap={config.WordWrap}, ShowLineNumbers={config.ShowLineNumbers}, FontFamily={config.FontFamily}, LastOpenedTabs.Count={config.LastOpenedTabs.Count}");
+                            System.Diagnostics.Debug.WriteLine($"配置加载成功: WordWrap={config.WordWrap}, FontFamily={config.FontFamily}, LastOpenedTabs.Count={config.LastOpenedTabs.Count}");
                             return config;
                         }
                     }
@@ -89,7 +88,7 @@ namespace WawaEditor
             
             // 返回默认配置
             var defaultConfig = new AppConfig();
-            System.Diagnostics.Debug.WriteLine($"使用默认配置: WordWrap={defaultConfig.WordWrap}, ShowLineNumbers={defaultConfig.ShowLineNumbers}");
+            System.Diagnostics.Debug.WriteLine($"使用默认配置: WordWrap={defaultConfig.WordWrap}");
             return defaultConfig;
         }
         
@@ -117,7 +116,7 @@ namespace WawaEditor
                 File.WriteAllText(ConfigFilePath, json);
                 
                 System.Diagnostics.Debug.WriteLine($"配置已保存到: {ConfigFilePath}");
-                System.Diagnostics.Debug.WriteLine($"配置内容: WordWrap={WordWrap}, ShowLineNumbers={ShowLineNumbers}, FontFamily={FontFamily}, LastOpenedTabs.Count={LastOpenedTabs.Count}");
+                System.Diagnostics.Debug.WriteLine($"配置内容: WordWrap={WordWrap}, FontFamily={FontFamily}, LastOpenedTabs.Count={LastOpenedTabs.Count}");
             }
             catch (Exception ex)
             {

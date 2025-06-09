@@ -48,7 +48,6 @@ partial class MainForm
         formatToolStripMenuItem = new ToolStripMenuItem();
         fontToolStripMenuItem = new ToolStripMenuItem();
         wordWrapToolStripMenuItem = new ToolStripMenuItem();
-        lineNumbersToolStripMenuItem = new ToolStripMenuItem();
         tabControl = new TabControl();
         statusStrip = new StatusStrip();
         menuStrip.SuspendLayout();
@@ -163,7 +162,7 @@ partial class MainForm
         replaceToolStripMenuItem.Click += new EventHandler(replaceToolStripMenuItem_Click);
         
         // formatToolStripMenuItem
-        formatToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { fontToolStripMenuItem, wordWrapToolStripMenuItem, lineNumbersToolStripMenuItem });
+        formatToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { fontToolStripMenuItem, wordWrapToolStripMenuItem });
         formatToolStripMenuItem.Name = "formatToolStripMenuItem";
         formatToolStripMenuItem.Size = new Size(57, 20);
         formatToolStripMenuItem.Text = "F&ormat";
@@ -180,13 +179,6 @@ partial class MainForm
         wordWrapToolStripMenuItem.Size = new Size(152, 22);
         wordWrapToolStripMenuItem.Text = "&Word Wrap";
         wordWrapToolStripMenuItem.Click += new EventHandler(wordWrapToolStripMenuItem_Click);
-        
-        // lineNumbersToolStripMenuItem
-        lineNumbersToolStripMenuItem.CheckOnClick = true;
-        lineNumbersToolStripMenuItem.Name = "lineNumbersToolStripMenuItem";
-        lineNumbersToolStripMenuItem.Size = new Size(152, 22);
-        lineNumbersToolStripMenuItem.Text = "&Line Numbers";
-        lineNumbersToolStripMenuItem.Click += new EventHandler(lineNumbersToolStripMenuItem_Click);
         
         // tabControl
         tabControl.Dock = DockStyle.Fill;
@@ -243,7 +235,6 @@ partial class MainForm
     private ToolStripMenuItem formatToolStripMenuItem;
     private ToolStripMenuItem fontToolStripMenuItem;
     private ToolStripMenuItem wordWrapToolStripMenuItem;
-    private ToolStripMenuItem lineNumbersToolStripMenuItem;
     private TabControl tabControl;
     private StatusStrip statusStrip;
 }

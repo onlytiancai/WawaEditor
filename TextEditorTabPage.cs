@@ -5,17 +5,12 @@ namespace WawaEditor
     public class TextEditorTabPage : TabPage
     {
         public FastTextBox? TextBox { get; private set; }
-        public Panel? LineNumberPanel { get; private set; }
         public string? FilePath { get; set; } = string.Empty;
         public bool IsModified { get; set; }
-        public bool ShowLineNumbers { get; private set; } = false;
         
-        private int _lastLineCount = 0;
         private Stack<UndoRedoAction> _undoStack = new Stack<UndoRedoAction>();
         private Stack<UndoRedoAction> _redoStack = new Stack<UndoRedoAction>();
         private bool _isUndoRedo = false;
-        private System.Windows.Forms.Timer? _lineNumberUpdateTimer;
-        private int _lineNumberWidth = 40;
         
         // 状态栏信息委托
         public delegate void StatusUpdateHandler(string statusText);
@@ -28,9 +23,8 @@ namespace WawaEditor
                 Text = title;
                 FilePath = string.Empty;
                 IsModified = false;
-                ShowLineNumbers = false; // 默认不显示行号
 
-                // 先创建标准RichTextBox
+                // 创建RichTextBox
                 TextBox = new FastTextBox();
                 TextBox.Dock = DockStyle.Fill;
                 TextBox.AcceptsTab = true;
@@ -48,36 +42,13 @@ namespace WawaEditor
                 contextMenu.Items.Add("全选", null, (s, e) => TextBox.SelectAll());
                 TextBox.ContextMenuStrip = contextMenu;
 
-                // 创建行号面板，但默认不显示
-                LineNumberPanel = new Panel();
-                LineNumberPanel.Dock = DockStyle.Left;
-                LineNumberPanel.Width = _lineNumberWidth;
-                LineNumberPanel.BackColor = Color.LightGray;
-                LineNumberPanel.Visible = false; // 默认不显示
-                LineNumberPanel.Paint += LineNumberPanel_Paint;
-
-                // 创建简单计时器
-                _lineNumberUpdateTimer = new System.Windows.Forms.Timer();
-                _lineNumberUpdateTimer.Interval = 200;
-                _lineNumberUpdateTimer.Tick += (s, e) => {
-                    _lineNumberUpdateTimer.Stop();
-                    if (ShowLineNumbers && LineNumberPanel != null)
-                        LineNumberPanel.Invalidate();
-                };
-
                 // 添加事件处理程序
                 TextBox.TextChanged += TextBox_TextChanged;
                 TextBox.VScroll += TextBox_VScroll;
                 TextBox.SelectionChanged += TextBox_SelectionChanged;
 
-                // 创建容器面板
-                Panel containerPanel = new Panel();
-                containerPanel.Dock = DockStyle.Fill;
-                
-                // 按正确顺序添加控件
-                containerPanel.Controls.Add(TextBox);
-                containerPanel.Controls.Add(LineNumberPanel);
-                Controls.Add(containerPanel);
+                // 添加控件
+                Controls.Add(TextBox);
                 
                 // 保存初始状态用于撤销
                 _undoStack.Push(new UndoRedoAction("", 0));
@@ -101,7 +72,6 @@ namespace WawaEditor
             }
 
             IsModified = true;
-            UpdateLineNumbers();
             
             // Update tab text to show modified status
             if (IsModified && !Text.EndsWith("*"))
@@ -115,16 +85,6 @@ namespace WawaEditor
 
         private void TextBox_VScroll(object? sender, EventArgs e)
         {
-            if (ShowLineNumbers)
-            {
-                // Use timer to throttle updates
-                if (_lineNumberUpdateTimer != null)
-                {
-                    _lineNumberUpdateTimer.Stop();
-                    _lineNumberUpdateTimer.Start();
-                }
-            }
-            
             // 更新状态栏信息
             UpdateStatusInfo();
         }
@@ -133,108 +93,6 @@ namespace WawaEditor
         {
             // 更新状态栏信息
             UpdateStatusInfo();
-        }
-
-        private void LineNumberPanel_Paint(object? sender, PaintEventArgs e)
-        {
-            if (!ShowLineNumbers) return;
-
-            try
-            {
-                // Use simple rendering settings
-                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
-
-                // Get the first visible line safely
-                int firstVisibleLine = 0;
-                try
-                {
-                    if (TextBox != null)
-                        firstVisibleLine = TextBox.GetLineFromCharIndex(TextBox.GetCharIndexFromPosition(new Point(0, 0)));
-                }
-                catch
-                {
-                    // Fallback if getting line index fails
-                    firstVisibleLine = 0;
-                }
-                
-                // Get total visible lines
-                int lineHeight = TextBox?.Font.Height ?? 15;
-                int visibleLines = ((TextBox?.ClientSize.Height ?? 0) / lineHeight) + 1;
-                
-                // Draw line numbers with simple approach
-                using (Font font = new Font(TextBox?.Font.FontFamily ?? new FontFamily("Consolas"), TextBox?.Font.Size ?? 10))
-                {
-                    // Limit the number of lines to draw to avoid performance issues
-                    int lastLine = Math.Min(firstVisibleLine + visibleLines, TextBox?.Lines.Length ?? 0);
-                    lastLine = Math.Min(lastLine, firstVisibleLine + 1000); // Cap at 1000 visible lines
-                    
-                    for (int i = firstVisibleLine; i < lastLine; i++)
-                    {
-                        int lineY = (i - firstVisibleLine) * lineHeight + 2;
-                        string lineNumber = (i + 1).ToString();
-                        e.Graphics.DrawString(lineNumber, font, Brushes.DarkBlue, 2, lineY);
-                    }
-                }
-            }
-            catch
-            {
-                // Ignore any rendering errors
-            }
-        }
-
-        private void UpdateLineNumbers()
-        {
-            if (!ShowLineNumbers) return;
-
-            int lineCount = TextBox?.Lines.Length ?? 0;
-            if (lineCount != _lastLineCount)
-            {
-                _lastLineCount = lineCount;
-                
-                // Update line number panel width based on number of digits
-                int digits = lineCount > 0 ? (int)Math.Log10(lineCount) + 1 : 1;
-                int requiredWidth = (digits * 10) + 10; // Approximate width based on digits
-                
-                if (requiredWidth != _lineNumberWidth)
-                {
-                    _lineNumberWidth = requiredWidth;
-                    if (LineNumberPanel != null)
-                        LineNumberPanel.Width = _lineNumberWidth;
-                }
-                
-                // Use timer to throttle updates
-                if (_lineNumberUpdateTimer != null)
-                {
-                    _lineNumberUpdateTimer.Stop();
-                    _lineNumberUpdateTimer.Start();
-                }
-            }
-        }
-
-        public void ToggleLineNumbers(bool show)
-        {
-            ShowLineNumbers = show;
-            System.Diagnostics.Debug.WriteLine($"切换行号显示: {show}");
-            
-            if (LineNumberPanel != null)
-            {
-                LineNumberPanel.Visible = show;
-                
-                // 确保面板在正确的位置
-                if (LineNumberPanel.Parent != null && LineNumberPanel.Parent.Controls.Count > 0)
-                {
-                    // 确保行号面板在最上层
-                    LineNumberPanel.BringToFront();
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"行号面板可见性: {LineNumberPanel.Visible}");
-            }
-            
-            if (show)
-            {
-                UpdateLineNumbers();
-                LineNumberPanel?.Invalidate();
-            }
         }
 
         public void SaveState()
@@ -375,9 +233,6 @@ namespace WawaEditor
         {
             if (TextBox != null)
                 TextBox.Font = font;
-            
-            if (ShowLineNumbers)
-                LineNumberPanel?.Invalidate();
         }
 
         public void Find(string searchText, bool matchCase, bool wholeWord)
