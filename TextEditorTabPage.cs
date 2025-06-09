@@ -159,11 +159,8 @@ namespace WawaEditor
                     _isUndoRedo = true;
                     UndoRedoAction action = _undoStack.Peek();
                     
-                    // 使用BeginUpdate/EndUpdate减少重绘
-                    TextBox.BeginUpdate();
                     TextBox.Text = action.Text;
                     TextBox.SelectionStart = action.CursorPosition;
-                    TextBox.EndUpdate();
                     
                     _isUndoRedo = false;
                 }
@@ -197,11 +194,8 @@ namespace WawaEditor
                     // 应用状态
                     _isUndoRedo = true;
                     
-                    // 使用BeginUpdate/EndUpdate减少重绘
-                    TextBox.BeginUpdate();
                     TextBox.Text = action.Text;
                     TextBox.SelectionStart = action.CursorPosition;
-                    TextBox.EndUpdate();
                     
                     _isUndoRedo = false;
                 }
@@ -234,9 +228,6 @@ namespace WawaEditor
                         TextBox.ScrollBars = RichTextBoxScrollBars.ForcedVertical;
                     else
                         TextBox.ScrollBars = RichTextBoxScrollBars.Both;
-                    
-                    // 强制刷新
-                    TextBox.Refresh();
                     
                     // 输出调试信息
                     Logger.Log($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
@@ -383,25 +374,10 @@ namespace WawaEditor
             
             // 禁用自动调整大小，避免自动换行问题
             this.AutoSize = false;
+            
+            // 启用双缓冲，减少闪烁
+            this.DoubleBuffered = true;
         }
-        
-        // 添加BeginUpdate和EndUpdate方法减少重绘
-        public void BeginUpdate()
-        {
-            SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)0, IntPtr.Zero);
-        }
-        
-        public void EndUpdate()
-        {
-            SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
-            this.Invalidate();
-        }
-        
-        // Win32 API
-        private const int WM_SETREDRAW = 0x0B;
-        
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
     }
 
     public class UndoRedoAction

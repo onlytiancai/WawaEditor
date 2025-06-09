@@ -33,9 +33,13 @@ public partial class MainForm : Form
         // 再次应用字体设置，确保所有标签页都使用正确的字体
         foreach (TabPage tabPage in tabControl.TabPages)
         {
-            if (tabPage is TextEditorTabPage tab)
+            if (tabPage is TextEditorTabPage normalTab)
             {
-                ApplyFontToTab(tab);
+                ApplyFontToTab(normalTab);
+            }
+            else if (tabPage is LargeTextEditorTabPage largeTab)
+            {
+                largeTab.SetFont(new Font(AppConfig.Instance.FontFamily, AppConfig.Instance.FontSize));
             }
         }
     }
@@ -82,13 +86,22 @@ public partial class MainForm : Form
         // 应用配置到已打开的标签页
         foreach (TabPage tabPage in tabControl.TabPages)
         {
-            if (tabPage is TextEditorTabPage tab)
+            if (tabPage is TextEditorTabPage normalTab)
             {
                 // 应用字体设置
-                ApplyFontToTab(tab);
+                ApplyFontToTab(normalTab);
                 
                 // 应用自动换行设置
-                tab.SetWordWrap(AppConfig.Instance.WordWrap);
+                normalTab.SetWordWrap(AppConfig.Instance.WordWrap);
+            }
+            else if (tabPage is LargeTextEditorTabPage largeTab)
+            {
+                // 应用字体设置
+                if (largeTab.TextBox != null)
+                {
+                    largeTab.SetFont(new Font(AppConfig.Instance.FontFamily, AppConfig.Instance.FontSize));
+                    largeTab.SetWordWrap(AppConfig.Instance.WordWrap);
+                }
             }
         }
     }
@@ -131,6 +144,20 @@ public partial class MainForm : Form
         }
         return null;
     }
+    
+    private LargeTextEditorTabPage GetCurrentLargeTab()
+    {
+        if (tabControl.SelectedTab is LargeTextEditorTabPage tab)
+        {
+            return tab;
+        }
+        return null;
+    }
+    
+    private bool IsCurrentTabLargeFile()
+    {
+        return tabControl.SelectedTab is LargeTextEditorTabPage;
+    }
 
     private void AddNewTab(string filePath = "")
     {
@@ -138,60 +165,141 @@ public partial class MainForm : Form
         {
             // Create tab first
             string title = string.IsNullOrEmpty(filePath) ? "Untitled" : Path.GetFileName(filePath);
-            TextEditorTabPage tab = new TextEditorTabPage(title);
-
-            // 注册状态栏更新事件
-            tab.OnStatusUpdate += UpdateStatusBar;
-
-            // Add tab to control before loading content
-            tabControl.TabPages.Add(tab);
-            tabControl.SelectedTab = tab;
-
-            // 先应用字体设置，再加载内容
-            ApplyFontToTab(tab);
             
-            // Load file content if needed
+            // 检查文件大小，决定使用哪种编辑器
+            bool isLargeFile = false;
             if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
-                tab.FilePath = filePath;
-
-                try
+                var fileInfo = new FileInfo(filePath);
+                isLargeFile = fileInfo.Length > 5000000; // 5MB以上使用大文件模式
+                
+                if (isLargeFile)
                 {
-                    Cursor.Current = Cursors.WaitCursor;
-                    Application.DoEvents();
-
-                    // Simple file loading approach
-                    using (var reader = new StreamReader(filePath))
+                    Logger.Log($"检测到大文件: {filePath}, 大小: {fileInfo.Length / 1024} KB，使用大文件模式");
+                }
+            }
+            
+            if (isLargeFile)
+            {
+                // 使用大文件编辑器
+                LargeTextEditorTabPage largeTab = new LargeTextEditorTabPage(title);
+                
+                // 注册状态栏更新事件
+                largeTab.OnStatusUpdate += UpdateStatusBar;
+                
+                // Add tab to control
+                tabControl.TabPages.Add(largeTab);
+                tabControl.SelectedTab = largeTab;
+                
+                // 应用字体设置
+                if (largeTab.TextBox != null)
+                {
+                    largeTab.SetFont(new Font(AppConfig.Instance.FontFamily, AppConfig.Instance.FontSize));
+                    largeTab.SetWordWrap(AppConfig.Instance.WordWrap);
+                }
+                
+                // 加载文件
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    try
                     {
-                        tab.TextBox.Text = reader.ReadToEnd();
+                        Cursor.Current = Cursors.WaitCursor;
+                        UpdateStatusBar($"正在加载大文件，请稍候...");
+                        Application.DoEvents();
+                        
+                        // 加载文件
+                        largeTab.LoadFile(filePath);
+                        
+                        UpdateStatusBar($"大文件已加载完成，使用优化模式");
                     }
-
-                    tab.IsModified = false;
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error opening large file: {ex.Message}", "Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    finally
+                    {
+                        Cursor.Current = Cursors.Default;
+                    }
                 }
-                catch (Exception ex)
+            }
+            else
+            {
+                // 使用普通编辑器
+                TextEditorTabPage tab = new TextEditorTabPage(title);
+                
+                // 注册状态栏更新事件
+                tab.OnStatusUpdate += UpdateStatusBar;
+                
+                // Add tab to control before loading content
+                tabControl.TabPages.Add(tab);
+                tabControl.SelectedTab = tab;
+                
+                // 先应用字体设置，再加载内容
+                ApplyFontToTab(tab);
+                
+                // Load file content if needed
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 {
-                    MessageBox.Show($"Error opening file: {ex.Message}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                finally
-                {
-                    Cursor.Current = Cursors.Default;
+                    tab.FilePath = filePath;
+                    
+                    try
+                    {
+                        Cursor.Current = Cursors.WaitCursor;
+                        Application.DoEvents();
+                        
+                        // 优化的文件加载方法
+                        using (var reader = new StreamReader(filePath))
+                        {
+                            tab.TextBox.SuspendLayout();
+                            tab.TextBox.Text = reader.ReadToEnd();
+                            tab.TextBox.ResumeLayout();
+                        }
+                        
+                        tab.IsModified = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error opening file: {ex.Message}", "Error",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    finally
+                    {
+                        Cursor.Current = Cursors.Default;
+                    }
                 }
             }
 
-            // Update UI settings
-            if (tab != null && tab.TextBox != null)
+            // Update UI settings for normal tab
+            TextEditorTabPage normalTab = tabControl.SelectedTab as TextEditorTabPage;
+            if (normalTab != null && normalTab.TextBox != null)
             {
                 // 应用全局设置
-                tab.SetWordWrap(AppConfig.Instance.WordWrap);
+                normalTab.SetWordWrap(AppConfig.Instance.WordWrap);
                 
                 // 更新菜单状态
-                wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
+                wordWrapToolStripMenuItem.Checked = normalTab.TextBox.WordWrap;
                 
-                tab.TextBox.Focus();
+                normalTab.TextBox.Focus();
                 
                 // 初始化状态栏信息
-                tab.UpdateStatusInfo();
+                normalTab.UpdateStatusInfo();
+            }
+            
+            // Update UI settings for large file tab
+            LargeTextEditorTabPage largeFileTab = tabControl.SelectedTab as LargeTextEditorTabPage;
+            if (largeFileTab != null && largeFileTab.TextBox != null)
+            {
+                // 应用全局设置
+                largeFileTab.SetWordWrap(AppConfig.Instance.WordWrap);
+                
+                // 更新菜单状态
+                wordWrapToolStripMenuItem.Checked = AppConfig.Instance.WordWrap;
+                
+                largeFileTab.TextBox.Focus();
+                
+                // 初始化状态栏信息
+                largeFileTab.UpdateStatusInfo();
             }
         }
         catch (Exception ex)
@@ -227,14 +335,25 @@ public partial class MainForm : Form
                     int selectionStart = tab.TextBox.SelectionStart;
                     int selectionLength = tab.TextBox.SelectionLength;
                     
-                    // 设置字体
-                    tab.TextBox.Font = font;
+                    // 暂停布局
+                    tab.TextBox.SuspendLayout();
                     
-                    // 恢复文本和选择位置（有时设置字体会清空文本）
-                    if (string.IsNullOrEmpty(tab.TextBox.Text) && !string.IsNullOrEmpty(text))
+                    try
                     {
-                        tab.TextBox.Text = text;
-                        tab.TextBox.Select(selectionStart, selectionLength);
+                        // 设置字体
+                        tab.TextBox.Font = font;
+                        
+                        // 恢复文本和选择位置（有时设置字体会清空文本）
+                        if (string.IsNullOrEmpty(tab.TextBox.Text) && !string.IsNullOrEmpty(text))
+                        {
+                            tab.TextBox.Text = text;
+                            tab.TextBox.Select(selectionStart, selectionLength);
+                        }
+                    }
+                    finally
+                    {
+                        // 恢复布局
+                        tab.TextBox.ResumeLayout();
                     }
                     
                     Logger.Log($"字体已应用: {tab.TextBox.Font.Name}, {tab.TextBox.Font.Size}");
@@ -275,7 +394,8 @@ public partial class MainForm : Form
         // Check if file is already open
         foreach (TabPage tabPage in tabControl.TabPages)
         {
-            if (tabPage is TextEditorTabPage tab && tab.FilePath == filePath)
+            if ((tabPage is TextEditorTabPage normalTab && normalTab.FilePath == filePath) ||
+                (tabPage is LargeTextEditorTabPage largeTab && largeTab.FilePath == filePath))
             {
                 tabControl.SelectedTab = tabPage;
                 return;
@@ -294,29 +414,57 @@ public partial class MainForm : Form
 
     private void saveToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        TextEditorTabPage currentTab = GetCurrentTab();
-        if (currentTab == null) return;
-
-        if (string.IsNullOrEmpty(currentTab.FilePath))
+        // 检查当前标签页类型
+        if (tabControl.SelectedTab is TextEditorTabPage currentTab)
         {
-            saveAsToolStripMenuItem_Click(sender, e);
+            if (string.IsNullOrEmpty(currentTab.FilePath))
+            {
+                saveAsToolStripMenuItem_Click(sender, e);
+            }
+            else
+            {
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    File.WriteAllText(currentTab.FilePath, currentTab.TextBox.Text);
+                    currentTab.IsModified = false;
+                    currentTab.Text = Path.GetFileName(currentTab.FilePath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
+            }
         }
-        else
+        else if (tabControl.SelectedTab is LargeTextEditorTabPage largeTab)
         {
-            try
+            if (string.IsNullOrEmpty(largeTab.FilePath))
             {
-                Cursor.Current = Cursors.WaitCursor;
-                File.WriteAllText(currentTab.FilePath, currentTab.TextBox.Text);
-                currentTab.IsModified = false;
-                currentTab.Text = Path.GetFileName(currentTab.FilePath);
+                saveAsToolStripMenuItem_Click(sender, e);
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                Cursor.Current = Cursors.Default;
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    UpdateStatusBar("正在保存大文件...");
+                    largeTab.SaveFile();
+                    largeTab.IsModified = false;
+                    largeTab.Text = Path.GetFileName(largeTab.FilePath);
+                    UpdateStatusBar("大文件保存完成");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error saving large file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
             }
         }
     }
@@ -363,9 +511,6 @@ public partial class MainForm : Form
 
     private void fontToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        TextEditorTabPage currentTab = GetCurrentTab();
-        if (currentTab == null) return;
-
         using (FontDialog fontDialog = new FontDialog())
         {
             // 使用配置中的字体初始化对话框
@@ -380,12 +525,13 @@ public partial class MainForm : Form
                 }
                 else
                 {
-                    fontDialog.Font = currentTab.TextBox.Font;
+                    // 使用默认字体
+                    fontDialog.Font = new Font("Consolas", 10);
                 }
             }
             catch
             {
-                fontDialog.Font = currentTab.TextBox.Font;
+                fontDialog.Font = new Font("Consolas", 10);
             }
             
             if (fontDialog.ShowDialog() == DialogResult.OK)
@@ -400,9 +546,13 @@ public partial class MainForm : Form
                 // 应用到所有标签页
                 foreach (TabPage tabPage in tabControl.TabPages)
                 {
-                    if (tabPage is TextEditorTabPage tab)
+                    if (tabPage is TextEditorTabPage normalTab)
                     {
-                        ApplyFontToTab(tab);
+                        ApplyFontToTab(normalTab);
+                    }
+                    else if (tabPage is LargeTextEditorTabPage largeTab)
+                    {
+                        largeTab.SetFont(fontDialog.Font);
                     }
                 }
             }
@@ -426,15 +576,18 @@ public partial class MainForm : Form
         // 应用到所有标签页
         foreach (TabPage tabPage in tabControl.TabPages)
         {
-            if (tabPage is TextEditorTabPage tab)
+            if (tabPage is TextEditorTabPage normalTab)
             {
-                tab.SetWordWrap(newState);
+                normalTab.SetWordWrap(newState);
+            }
+            else if (tabPage is LargeTextEditorTabPage largeTab)
+            {
+                largeTab.SetWordWrap(newState);
             }
         }
         
         // 强制刷新当前标签页
-        TextEditorTabPage currentTab = GetCurrentTab();
-        if (currentTab?.TextBox != null)
+        if (tabControl.SelectedTab is TextEditorTabPage currentTab && currentTab.TextBox != null)
         {
             // 保存当前位置
             int selectionStart = currentTab.TextBox.SelectionStart;
@@ -446,6 +599,12 @@ public partial class MainForm : Form
             // 恢复位置
             currentTab.TextBox.Select(selectionStart, selectionLength);
             currentTab.TextBox.Focus();
+        }
+        else if (tabControl.SelectedTab is LargeTextEditorTabPage largeTab)
+        {
+            // 大文件模式下刷新
+            largeTab.TextBox.Invalidate();
+            largeTab.TextBox.Focus();
         }
     }
 
@@ -682,10 +841,15 @@ public partial class MainForm : Form
         // 保存当前打开的标签页
         foreach (TabPage tabPage in tabControl.TabPages)
         {
-            if (tabPage is TextEditorTabPage tab && !string.IsNullOrEmpty(tab.FilePath) && File.Exists(tab.FilePath))
+            if (tabPage is TextEditorTabPage normalTab && !string.IsNullOrEmpty(normalTab.FilePath) && File.Exists(normalTab.FilePath))
             {
-                AppConfig.Instance.LastOpenedTabs.Add(tab.FilePath);
-                Logger.Log($"保存标签页: {tab.FilePath}");
+                AppConfig.Instance.LastOpenedTabs.Add(normalTab.FilePath);
+                Logger.Log($"保存标签页: {normalTab.FilePath}");
+            }
+            else if (tabPage is LargeTextEditorTabPage largeTab && !string.IsNullOrEmpty(largeTab.FilePath) && File.Exists(largeTab.FilePath))
+            {
+                AppConfig.Instance.LastOpenedTabs.Add(largeTab.FilePath);
+                Logger.Log($"保存标签页(大文件): {largeTab.FilePath}");
             }
         }
         
