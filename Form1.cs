@@ -26,19 +26,58 @@ public partial class Form1 : Form
 
     private void AddNewTab(string filePath = "")
     {
-        string title = string.IsNullOrEmpty(filePath) ? "Untitled" : Path.GetFileName(filePath);
-        TextEditorTabPage tab = new TextEditorTabPage(title);
-        
-        if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+        try
         {
-            tab.FilePath = filePath;
-            tab.TextBox.Text = File.ReadAllText(filePath);
-            tab.IsModified = false;
+            // Create tab first
+            string title = string.IsNullOrEmpty(filePath) ? "Untitled" : Path.GetFileName(filePath);
+            TextEditorTabPage tab = new TextEditorTabPage(title);
+            
+            // Add tab to control before loading content
+            tabControl.TabPages.Add(tab);
+            tabControl.SelectedTab = tab;
+            
+            // Load file content if needed
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                tab.FilePath = filePath;
+                
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    Application.DoEvents();
+                    
+                    // Simple file loading approach
+                    using (var reader = new StreamReader(filePath))
+                    {
+                        tab.TextBox.Text = reader.ReadToEnd();
+                    }
+                    
+                    tab.IsModified = false;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error opening file: {ex.Message}", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
+            }
+            
+            // Update UI settings
+            if (tab != null && tab.TextBox != null)
+            {
+                tab.TextBox.Focus();
+                lineNumbersToolStripMenuItem.Checked = tab.ShowLineNumbers;
+                wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
+            }
         }
-        
-        tabControl.TabPages.Add(tab);
-        tabControl.SelectedTab = tab;
-        tab.TextBox.Focus();
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error creating new tab: {ex.Message}", "Error", 
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void newToolStripMenuItem_Click(object sender, EventArgs e)
@@ -83,9 +122,21 @@ public partial class Form1 : Form
         }
         else
         {
-            File.WriteAllText(currentTab.FilePath, currentTab.TextBox.Text);
-            currentTab.IsModified = false;
-            currentTab.Text = Path.GetFileName(currentTab.FilePath);
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                File.WriteAllText(currentTab.FilePath, currentTab.TextBox.Text);
+                currentTab.IsModified = false;
+                currentTab.Text = Path.GetFileName(currentTab.FilePath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor.Current = Cursors.Default;
+            }
         }
     }
 
@@ -102,11 +153,24 @@ public partial class Form1 : Form
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
             {
                 string filePath = saveFileDialog.FileName;
-                File.WriteAllText(filePath, currentTab.TextBox.Text);
                 
-                currentTab.FilePath = filePath;
-                currentTab.IsModified = false;
-                currentTab.Text = Path.GetFileName(filePath);
+                try
+                {
+                    Cursor.Current = Cursors.WaitCursor;
+                    File.WriteAllText(filePath, currentTab.TextBox.Text);
+                    
+                    currentTab.FilePath = filePath;
+                    currentTab.IsModified = false;
+                    currentTab.Text = Path.GetFileName(filePath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    Cursor.Current = Cursors.Default;
+                }
             }
         }
     }
@@ -139,6 +203,17 @@ public partial class Form1 : Form
         if (currentTab != null)
         {
             currentTab.SetWordWrap(wordWrapToolStripMenuItem.Checked);
+        }
+    }
+    
+    private void lineNumbersToolStripMenuItem_Click(object sender, EventArgs e)
+    {
+        lineNumbersToolStripMenuItem.Checked = !lineNumbersToolStripMenuItem.Checked;
+        
+        TextEditorTabPage currentTab = GetCurrentTab();
+        if (currentTab != null)
+        {
+            currentTab.ToggleLineNumbers(lineNumbersToolStripMenuItem.Checked);
         }
     }
 
@@ -218,6 +293,7 @@ public partial class Form1 : Form
         {
             // Update UI based on current tab settings
             wordWrapToolStripMenuItem.Checked = currentTab.TextBox.WordWrap;
+            lineNumbersToolStripMenuItem.Checked = currentTab.ShowLineNumbers;
         }
     }
 

@@ -47,6 +47,7 @@ partial class Form1
         formatToolStripMenuItem = new ToolStripMenuItem();
         fontToolStripMenuItem = new ToolStripMenuItem();
         wordWrapToolStripMenuItem = new ToolStripMenuItem();
+        lineNumbersToolStripMenuItem = new ToolStripMenuItem();
         tabControl = new TabControl();
         statusStrip = new StatusStrip();
         menuStrip.SuspendLayout();
@@ -155,23 +156,32 @@ partial class Form1
         replaceToolStripMenuItem.Click += new EventHandler(replaceToolStripMenuItem_Click);
         
         // formatToolStripMenuItem
-        formatToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { fontToolStripMenuItem, wordWrapToolStripMenuItem });
+        formatToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { fontToolStripMenuItem, wordWrapToolStripMenuItem, lineNumbersToolStripMenuItem });
         formatToolStripMenuItem.Name = "formatToolStripMenuItem";
         formatToolStripMenuItem.Size = new Size(57, 20);
         formatToolStripMenuItem.Text = "F&ormat";
         
         // fontToolStripMenuItem
         fontToolStripMenuItem.Name = "fontToolStripMenuItem";
-        fontToolStripMenuItem.Size = new Size(134, 22);
+        fontToolStripMenuItem.Size = new Size(152, 22);
         fontToolStripMenuItem.Text = "&Font...";
         fontToolStripMenuItem.Click += new EventHandler(fontToolStripMenuItem_Click);
         
         // wordWrapToolStripMenuItem
         wordWrapToolStripMenuItem.CheckOnClick = true;
         wordWrapToolStripMenuItem.Name = "wordWrapToolStripMenuItem";
-        wordWrapToolStripMenuItem.Size = new Size(134, 22);
+        wordWrapToolStripMenuItem.Size = new Size(152, 22);
         wordWrapToolStripMenuItem.Text = "&Word Wrap";
         wordWrapToolStripMenuItem.Click += new EventHandler(wordWrapToolStripMenuItem_Click);
+        
+        // lineNumbersToolStripMenuItem
+        lineNumbersToolStripMenuItem.Checked = true;
+        lineNumbersToolStripMenuItem.CheckOnClick = true;
+        lineNumbersToolStripMenuItem.CheckState = CheckState.Checked;
+        lineNumbersToolStripMenuItem.Name = "lineNumbersToolStripMenuItem";
+        lineNumbersToolStripMenuItem.Size = new Size(152, 22);
+        lineNumbersToolStripMenuItem.Text = "&Line Numbers";
+        lineNumbersToolStripMenuItem.Click += new EventHandler(lineNumbersToolStripMenuItem_Click);
         
         // tabControl
         tabControl.Dock = DockStyle.Fill;
@@ -226,6 +236,7 @@ partial class Form1
     private ToolStripMenuItem formatToolStripMenuItem;
     private ToolStripMenuItem fontToolStripMenuItem;
     private ToolStripMenuItem wordWrapToolStripMenuItem;
+    private ToolStripMenuItem lineNumbersToolStripMenuItem;
     private TabControl tabControl;
     private StatusStrip statusStrip;
 }

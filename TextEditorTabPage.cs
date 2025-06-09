@@ -4,57 +4,75 @@ namespace WawaEditor
 {
     public class TextEditorTabPage : TabPage
     {
-        public RichTextBox TextBox { get; private set; }
-        public Panel LineNumberPanel { get; private set; }
-        public string FilePath { get; set; }
+        public FastTextBox? TextBox { get; private set; }
+        public Panel? LineNumberPanel { get; private set; }
+        public string? FilePath { get; set; } = string.Empty;
         public bool IsModified { get; set; }
+        public bool ShowLineNumbers { get; private set; } = true;
+        
         private int _lastLineCount = 0;
         private Stack<UndoRedoAction> _undoStack = new Stack<UndoRedoAction>();
         private Stack<UndoRedoAction> _redoStack = new Stack<UndoRedoAction>();
         private bool _isUndoRedo = false;
+        private System.Windows.Forms.Timer? _lineNumberUpdateTimer;
+        private int _lineNumberWidth = 40;
 
         public TextEditorTabPage(string title = "Untitled")
         {
-            Text = title;
-            FilePath = string.Empty;
-            IsModified = false;
-
-            // Create line number panel
-            LineNumberPanel = new Panel
+            try
             {
-                Dock = DockStyle.Left,
-                Width = 40,
-                BackColor = Color.LightGray
-            };
-            LineNumberPanel.Paint += LineNumberPanel_Paint;
+                Text = title;
+                FilePath = string.Empty;
+                IsModified = false;
 
-            // Create text box
-            TextBox = new RichTextBox
+                // Create standard RichTextBox first
+                TextBox = new FastTextBox();
+                TextBox.Dock = DockStyle.Fill;
+                TextBox.AcceptsTab = true;
+                TextBox.Font = new Font("Consolas", 10);
+                TextBox.WordWrap = false;
+                TextBox.ScrollBars = RichTextBoxScrollBars.Both;
+                TextBox.Text = "";
+
+                // Create line number panel
+                LineNumberPanel = new Panel();
+                LineNumberPanel.Dock = DockStyle.Left;
+                LineNumberPanel.Width = _lineNumberWidth;
+                LineNumberPanel.BackColor = Color.LightGray;
+                LineNumberPanel.Visible = ShowLineNumbers;
+                LineNumberPanel.Paint += LineNumberPanel_Paint;
+
+                // Create a simple timer
+                _lineNumberUpdateTimer = new System.Windows.Forms.Timer();
+                _lineNumberUpdateTimer.Interval = 200;
+                _lineNumberUpdateTimer.Tick += (s, e) => {
+                    _lineNumberUpdateTimer.Stop();
+                    if (ShowLineNumbers && LineNumberPanel != null)
+                        LineNumberPanel.Invalidate();
+                };
+
+                // Add event handlers
+                TextBox.TextChanged += TextBox_TextChanged;
+                TextBox.VScroll += TextBox_VScroll;
+                TextBox.SelectionChanged += TextBox_SelectionChanged;
+
+                // Create container panel
+                Panel containerPanel = new Panel();
+                containerPanel.Dock = DockStyle.Fill;
+                
+                // Add controls in correct order
+                containerPanel.Controls.Add(TextBox);
+                containerPanel.Controls.Add(LineNumberPanel);
+                Controls.Add(containerPanel);
+                
+                // Save initial state for undo
+                _undoStack.Push(new UndoRedoAction("", 0));
+            }
+            catch (Exception ex)
             {
-                Dock = DockStyle.Fill,
-                AcceptsTab = true,
-                Font = new Font("Consolas", 10),
-                WordWrap = false,
-                ScrollBars = RichTextBoxScrollBars.Both,
-                DetectUrls = false
-            };
-
-            TextBox.TextChanged += TextBox_TextChanged;
-            TextBox.VScroll += TextBox_VScroll;
-            TextBox.SelectionChanged += TextBox_SelectionChanged;
-
-            // Create a container panel to hold both controls
-            Panel containerPanel = new Panel
-            {
-                Dock = DockStyle.Fill
-            };
-
-            containerPanel.Controls.Add(TextBox);
-            containerPanel.Controls.Add(LineNumberPanel);
-            Controls.Add(containerPanel);
-
-            // Save initial state for undo
-            SaveState();
+                MessageBox.Show("Error initializing editor: " + ex.Message, "Error", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void TextBox_TextChanged(object? sender, EventArgs e)
@@ -77,46 +95,133 @@ namespace WawaEditor
 
         private void TextBox_VScroll(object? sender, EventArgs e)
         {
-            LineNumberPanel.Invalidate();
+            if (ShowLineNumbers)
+            {
+                // Use timer to throttle updates
+                _lineNumberUpdateTimer.Stop();
+                _lineNumberUpdateTimer.Start();
+            }
         }
 
         private void TextBox_SelectionChanged(object? sender, EventArgs e)
         {
-            LineNumberPanel.Invalidate();
+            // No need to update line numbers on selection change
         }
 
         private void LineNumberPanel_Paint(object? sender, PaintEventArgs e)
         {
-            // Get the first visible line
-            int firstVisibleLine = TextBox.GetLineFromCharIndex(TextBox.GetCharIndexFromPosition(new Point(0, 0)));
-            
-            // Get total visible lines
-            int visibleLines = TextBox.Height / TextBox.Font.Height;
-            
-            // Draw line numbers
-            using (Font font = new Font(TextBox.Font.FontFamily, TextBox.Font.Size))
+            if (!ShowLineNumbers) return;
+
+            try
             {
-                for (int i = firstVisibleLine; i <= firstVisibleLine + visibleLines && i < TextBox.Lines.Length; i++)
+                // Use simple rendering settings
+                e.Graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SystemDefault;
+
+                // Get the first visible line safely
+                int firstVisibleLine = 0;
+                try
                 {
-                    int lineY = (i - firstVisibleLine) * TextBox.Font.Height + 2;
-                    e.Graphics.DrawString((i + 1).ToString(), font, Brushes.DarkBlue, LineNumberPanel.Width - 25, lineY);
+                    firstVisibleLine = TextBox.GetLineFromCharIndex(TextBox.GetCharIndexFromPosition(new Point(0, 0)));
                 }
+                catch
+                {
+                    // Fallback if getting line index fails
+                    firstVisibleLine = 0;
+                }
+                
+                // Get total visible lines
+                int lineHeight = TextBox.Font.Height;
+                int visibleLines = (TextBox.ClientSize.Height / lineHeight) + 1;
+                
+                // Draw line numbers with simple approach
+                using (Font font = new Font(TextBox.Font.FontFamily, TextBox.Font.Size))
+                {
+                    // Limit the number of lines to draw to avoid performance issues
+                    int lastLine = Math.Min(firstVisibleLine + visibleLines, TextBox.Lines.Length);
+                    lastLine = Math.Min(lastLine, firstVisibleLine + 1000); // Cap at 1000 visible lines
+                    
+                    for (int i = firstVisibleLine; i < lastLine; i++)
+                    {
+                        int lineY = (i - firstVisibleLine) * lineHeight + 2;
+                        string lineNumber = (i + 1).ToString();
+                        e.Graphics.DrawString(lineNumber, font, Brushes.DarkBlue, 2, lineY);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore any rendering errors
             }
         }
 
         private void UpdateLineNumbers()
         {
+            if (!ShowLineNumbers) return;
+
             int lineCount = TextBox.Lines.Length;
             if (lineCount != _lastLineCount)
             {
                 _lastLineCount = lineCount;
+                
+                // Update line number panel width based on number of digits
+                int digits = lineCount > 0 ? (int)Math.Log10(lineCount) + 1 : 1;
+                int requiredWidth = (digits * 10) + 10; // Approximate width based on digits
+                
+                if (requiredWidth != _lineNumberWidth)
+                {
+                    _lineNumberWidth = requiredWidth;
+                    LineNumberPanel.Width = _lineNumberWidth;
+                }
+                
+                // Use timer to throttle updates
+                _lineNumberUpdateTimer.Stop();
+                _lineNumberUpdateTimer.Start();
+            }
+        }
+
+        public void ToggleLineNumbers(bool show)
+        {
+            ShowLineNumbers = show;
+            LineNumberPanel.Visible = show;
+            
+            if (show)
+            {
+                UpdateLineNumbers();
                 LineNumberPanel.Invalidate();
             }
         }
 
         public void SaveState()
         {
-            _undoStack.Push(new UndoRedoAction(TextBox.Text, TextBox.SelectionStart));
+            try
+            {
+                // Limit undo stack size to prevent memory issues with large files
+                if (_undoStack.Count > 100)
+                {
+                    var tempStack = new Stack<UndoRedoAction>();
+                    for (int i = 0; i < 50; i++)
+                    {
+                        if (_undoStack.Count > 1) // Keep at least one state
+                            tempStack.Push(_undoStack.Pop());
+                        else
+                            break;
+                    }
+                    _undoStack = new Stack<UndoRedoAction>();
+                    while (tempStack.Count > 0)
+                        _undoStack.Push(tempStack.Pop());
+                }
+                
+                int selectionStart = 0;
+                try { selectionStart = TextBox.SelectionStart; } catch { }
+                
+                _undoStack.Push(new UndoRedoAction(TextBox.Text, selectionStart));
+            }
+            catch
+            {
+                // Ignore errors during state saving
+                if (_undoStack.Count == 0)
+                    _undoStack.Push(new UndoRedoAction("", 0));
+            }
         }
 
         public bool CanUndo()
@@ -171,7 +276,8 @@ namespace WawaEditor
         public void SetFont(Font font)
         {
             TextBox.Font = font;
-            LineNumberPanel.Invalidate();
+            if (ShowLineNumbers)
+                LineNumberPanel.Invalidate();
         }
 
         public void Find(string searchText, bool matchCase, bool wholeWord)
@@ -239,12 +345,24 @@ namespace WawaEditor
                 text = Regex.Replace(
                     text, 
                     Regex.Escape(searchText), 
-                    replaceText.Replace("$", "$$"), 
+                    replaceText.Replace("$", "$"), 
                     matchCase ? RegexOptions.None : RegexOptions.IgnoreCase
                 );
             }
             
             TextBox.Text = text;
+        }
+    }
+
+    // Standard RichTextBox without custom overrides to ensure stability
+    public class FastTextBox : RichTextBox
+    {
+        public FastTextBox()
+        {
+            // Use standard settings for maximum compatibility
+            this.MaxLength = int.MaxValue;
+            this.DetectUrls = false;
+            this.HideSelection = false;
         }
     }
 
