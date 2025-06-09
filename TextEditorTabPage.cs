@@ -16,6 +16,10 @@ namespace WawaEditor
         private bool _isUndoRedo = false;
         private System.Windows.Forms.Timer? _lineNumberUpdateTimer;
         private int _lineNumberWidth = 40;
+        
+        // 状态栏信息委托
+        public delegate void StatusUpdateHandler(string statusText);
+        public event StatusUpdateHandler? OnStatusUpdate;
 
         public TextEditorTabPage(string title = "Untitled")
         {
@@ -25,7 +29,7 @@ namespace WawaEditor
                 FilePath = string.Empty;
                 IsModified = false;
 
-                // Create standard RichTextBox first
+                // 先创建标准RichTextBox
                 TextBox = new FastTextBox();
                 TextBox.Dock = DockStyle.Fill;
                 TextBox.AcceptsTab = true;
@@ -34,7 +38,7 @@ namespace WawaEditor
                 TextBox.ScrollBars = RichTextBoxScrollBars.Both;
                 TextBox.Text = "";
 
-                // Create line number panel
+                // 创建行号面板
                 LineNumberPanel = new Panel();
                 LineNumberPanel.Dock = DockStyle.Left;
                 LineNumberPanel.Width = _lineNumberWidth;
@@ -42,7 +46,7 @@ namespace WawaEditor
                 LineNumberPanel.Visible = ShowLineNumbers;
                 LineNumberPanel.Paint += LineNumberPanel_Paint;
 
-                // Create a simple timer
+                // 创建简单计时器
                 _lineNumberUpdateTimer = new System.Windows.Forms.Timer();
                 _lineNumberUpdateTimer.Interval = 200;
                 _lineNumberUpdateTimer.Tick += (s, e) => {
@@ -51,22 +55,25 @@ namespace WawaEditor
                         LineNumberPanel.Invalidate();
                 };
 
-                // Add event handlers
+                // 添加事件处理程序
                 TextBox.TextChanged += TextBox_TextChanged;
                 TextBox.VScroll += TextBox_VScroll;
                 TextBox.SelectionChanged += TextBox_SelectionChanged;
 
-                // Create container panel
+                // 创建容器面板
                 Panel containerPanel = new Panel();
                 containerPanel.Dock = DockStyle.Fill;
                 
-                // Add controls in correct order
+                // 按正确顺序添加控件
                 containerPanel.Controls.Add(TextBox);
                 containerPanel.Controls.Add(LineNumberPanel);
                 Controls.Add(containerPanel);
                 
-                // Save initial state for undo
+                // 保存初始状态用于撤销
                 _undoStack.Push(new UndoRedoAction("", 0));
+                
+                // 初始化状态栏信息
+                UpdateStatusInfo();
             }
             catch (Exception ex)
             {
@@ -91,6 +98,9 @@ namespace WawaEditor
             {
                 Text = Text + "*";
             }
+            
+            // 更新状态栏信息
+            UpdateStatusInfo();
         }
 
         private void TextBox_VScroll(object? sender, EventArgs e)
@@ -98,14 +108,21 @@ namespace WawaEditor
             if (ShowLineNumbers)
             {
                 // Use timer to throttle updates
-                _lineNumberUpdateTimer.Stop();
-                _lineNumberUpdateTimer.Start();
+                if (_lineNumberUpdateTimer != null)
+                {
+                    _lineNumberUpdateTimer.Stop();
+                    _lineNumberUpdateTimer.Start();
+                }
             }
+            
+            // 更新状态栏信息
+            UpdateStatusInfo();
         }
 
         private void TextBox_SelectionChanged(object? sender, EventArgs e)
         {
-            // No need to update line numbers on selection change
+            // 更新状态栏信息
+            UpdateStatusInfo();
         }
 
         private void LineNumberPanel_Paint(object? sender, PaintEventArgs e)
@@ -121,7 +138,8 @@ namespace WawaEditor
                 int firstVisibleLine = 0;
                 try
                 {
-                    firstVisibleLine = TextBox.GetLineFromCharIndex(TextBox.GetCharIndexFromPosition(new Point(0, 0)));
+                    if (TextBox != null)
+                        firstVisibleLine = TextBox.GetLineFromCharIndex(TextBox.GetCharIndexFromPosition(new Point(0, 0)));
                 }
                 catch
                 {
@@ -130,14 +148,14 @@ namespace WawaEditor
                 }
                 
                 // Get total visible lines
-                int lineHeight = TextBox.Font.Height;
-                int visibleLines = (TextBox.ClientSize.Height / lineHeight) + 1;
+                int lineHeight = TextBox?.Font.Height ?? 15;
+                int visibleLines = ((TextBox?.ClientSize.Height ?? 0) / lineHeight) + 1;
                 
                 // Draw line numbers with simple approach
-                using (Font font = new Font(TextBox.Font.FontFamily, TextBox.Font.Size))
+                using (Font font = new Font(TextBox?.Font.FontFamily ?? new FontFamily("Consolas"), TextBox?.Font.Size ?? 10))
                 {
                     // Limit the number of lines to draw to avoid performance issues
-                    int lastLine = Math.Min(firstVisibleLine + visibleLines, TextBox.Lines.Length);
+                    int lastLine = Math.Min(firstVisibleLine + visibleLines, TextBox?.Lines.Length ?? 0);
                     lastLine = Math.Min(lastLine, firstVisibleLine + 1000); // Cap at 1000 visible lines
                     
                     for (int i = firstVisibleLine; i < lastLine; i++)
@@ -158,7 +176,7 @@ namespace WawaEditor
         {
             if (!ShowLineNumbers) return;
 
-            int lineCount = TextBox.Lines.Length;
+            int lineCount = TextBox?.Lines.Length ?? 0;
             if (lineCount != _lastLineCount)
             {
                 _lastLineCount = lineCount;
@@ -170,24 +188,29 @@ namespace WawaEditor
                 if (requiredWidth != _lineNumberWidth)
                 {
                     _lineNumberWidth = requiredWidth;
-                    LineNumberPanel.Width = _lineNumberWidth;
+                    if (LineNumberPanel != null)
+                        LineNumberPanel.Width = _lineNumberWidth;
                 }
                 
                 // Use timer to throttle updates
-                _lineNumberUpdateTimer.Stop();
-                _lineNumberUpdateTimer.Start();
+                if (_lineNumberUpdateTimer != null)
+                {
+                    _lineNumberUpdateTimer.Stop();
+                    _lineNumberUpdateTimer.Start();
+                }
             }
         }
 
         public void ToggleLineNumbers(bool show)
         {
             ShowLineNumbers = show;
-            LineNumberPanel.Visible = show;
+            if (LineNumberPanel != null)
+                LineNumberPanel.Visible = show;
             
             if (show)
             {
                 UpdateLineNumbers();
-                LineNumberPanel.Invalidate();
+                LineNumberPanel?.Invalidate();
             }
         }
 
@@ -212,9 +235,9 @@ namespace WawaEditor
                 }
                 
                 int selectionStart = 0;
-                try { selectionStart = TextBox.SelectionStart; } catch { }
+                try { if (TextBox != null) selectionStart = TextBox.SelectionStart; } catch { }
                 
-                _undoStack.Push(new UndoRedoAction(TextBox.Text, selectionStart));
+                _undoStack.Push(new UndoRedoAction(TextBox?.Text ?? "", selectionStart));
             }
             catch
             {
@@ -236,53 +259,96 @@ namespace WawaEditor
 
         public void Undo()
         {
-            if (CanUndo())
+            if (CanUndo() && TextBox != null)
             {
-                // Save current state to redo stack
-                _redoStack.Push(_undoStack.Pop());
+                try
+                {
+                    // 暂停布局和绘制以减少闪烁
+                    TextBox.SuspendLayout();
+                    
+                    // 保存当前状态到重做栈
+                    _redoStack.Push(_undoStack.Pop());
+                    
+                    // 应用前一个状态
+                    _isUndoRedo = true;
+                    UndoRedoAction action = _undoStack.Peek();
+                    
+                    // 使用BeginUpdate/EndUpdate减少重绘
+                    TextBox.BeginUpdate();
+                    TextBox.Text = action.Text;
+                    TextBox.SelectionStart = action.CursorPosition;
+                    TextBox.EndUpdate();
+                    
+                    _isUndoRedo = false;
+                }
+                finally
+                {
+                    // 恢复布局
+                    if (TextBox != null)
+                        TextBox.ResumeLayout();
+                }
                 
-                // Apply previous state
-                _isUndoRedo = true;
-                UndoRedoAction action = _undoStack.Peek();
-                TextBox.Text = action.Text;
-                TextBox.SelectionStart = action.CursorPosition;
-                _isUndoRedo = false;
+                // 更新状态栏信息
+                UpdateStatusInfo();
             }
         }
 
         public void Redo()
         {
-            if (CanRedo())
+            if (CanRedo() && TextBox != null)
             {
-                // Get state from redo stack
-                UndoRedoAction action = _redoStack.Pop();
+                try
+                {
+                    // 暂停布局和绘制以减少闪烁
+                    TextBox.SuspendLayout();
+                    
+                    // 从重做栈获取状态
+                    UndoRedoAction action = _redoStack.Pop();
+                    
+                    // 保存当前状态到撤销栈
+                    _undoStack.Push(action);
+                    
+                    // 应用状态
+                    _isUndoRedo = true;
+                    
+                    // 使用BeginUpdate/EndUpdate减少重绘
+                    TextBox.BeginUpdate();
+                    TextBox.Text = action.Text;
+                    TextBox.SelectionStart = action.CursorPosition;
+                    TextBox.EndUpdate();
+                    
+                    _isUndoRedo = false;
+                }
+                finally
+                {
+                    // 恢复布局
+                    if (TextBox != null)
+                        TextBox.ResumeLayout();
+                }
                 
-                // Save current state to undo stack
-                _undoStack.Push(action);
-                
-                // Apply state
-                _isUndoRedo = true;
-                TextBox.Text = action.Text;
-                TextBox.SelectionStart = action.CursorPosition;
-                _isUndoRedo = false;
+                // 更新状态栏信息
+                UpdateStatusInfo();
             }
         }
 
         public void SetWordWrap(bool enabled)
         {
-            TextBox.WordWrap = enabled;
+            if (TextBox != null)
+                TextBox.WordWrap = enabled;
         }
 
         public void SetFont(Font font)
         {
-            TextBox.Font = font;
+            if (TextBox != null)
+                TextBox.Font = font;
+            
             if (ShowLineNumbers)
-                LineNumberPanel.Invalidate();
+                LineNumberPanel?.Invalidate();
         }
 
         public void Find(string searchText, bool matchCase, bool wholeWord)
         {
-            if (string.IsNullOrEmpty(searchText))
+            if (string.IsNullOrEmpty(searchText) || TextBox == null)
                 return;
 
             int startIndex = TextBox.SelectionStart + TextBox.SelectionLength;
@@ -316,19 +382,23 @@ namespace WawaEditor
                 TextBox.SelectionLength = 0;
                 Find(searchText, matchCase, wholeWord);
             }
+            
+            // 更新状态栏信息
+            UpdateStatusInfo();
         }
 
         public void ReplaceSelected(string replaceText)
         {
-            if (TextBox.SelectionLength > 0)
+            if (TextBox != null && TextBox.SelectionLength > 0)
             {
                 TextBox.SelectedText = replaceText;
+                UpdateStatusInfo();
             }
         }
 
         public void ReplaceAll(string searchText, string replaceText, bool matchCase, bool wholeWord)
         {
-            if (string.IsNullOrEmpty(searchText))
+            if (string.IsNullOrEmpty(searchText) || TextBox == null)
                 return;
 
             string text = TextBox.Text;
@@ -345,12 +415,50 @@ namespace WawaEditor
                 text = Regex.Replace(
                     text, 
                     Regex.Escape(searchText), 
-                    replaceText.Replace("$", "$"), 
+                    replaceText.Replace("$", "$$"), 
                     matchCase ? RegexOptions.None : RegexOptions.IgnoreCase
                 );
             }
             
             TextBox.Text = text;
+            UpdateStatusInfo();
+        }
+        
+        // 更新状态栏信息
+        public void UpdateStatusInfo()
+        {
+            if (TextBox == null) return;
+            
+            try
+            {
+                // 获取当前行号和列号
+                int pos = TextBox.SelectionStart;
+                int line = TextBox.GetLineFromCharIndex(pos);
+                int column = pos - TextBox.GetFirstCharIndexFromLine(line);
+                
+                // 获取总行数和字符数
+                int totalLines = TextBox.Lines.Length;
+                int totalChars = TextBox.Text.Length;
+                
+                // 获取选中文本的字符数
+                int selectedChars = TextBox.SelectionLength;
+                
+                // 构建状态信息
+                string statusText = $"行: {line + 1}/{totalLines}  列: {column + 1}  字符: {totalChars}";
+                
+                // 如果有选中文本，显示选中的字符数
+                if (selectedChars > 0)
+                {
+                    statusText += $"  选中: {selectedChars}";
+                }
+                
+                // 触发状态更新事件
+                OnStatusUpdate?.Invoke(statusText);
+            }
+            catch
+            {
+                // 忽略任何错误
+            }
         }
     }
 
@@ -364,6 +472,24 @@ namespace WawaEditor
             this.DetectUrls = false;
             this.HideSelection = false;
         }
+        
+        // 添加BeginUpdate和EndUpdate方法减少重绘
+        public void BeginUpdate()
+        {
+            SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)0, IntPtr.Zero);
+        }
+        
+        public void EndUpdate()
+        {
+            SendMessage(this.Handle, WM_SETREDRAW, (IntPtr)1, IntPtr.Zero);
+            this.Invalidate();
+        }
+        
+        // Win32 API
+        private const int WM_SETREDRAW = 0x0B;
+        
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
     }
 
     public class UndoRedoAction

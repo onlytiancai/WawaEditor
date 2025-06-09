@@ -5,14 +5,30 @@ namespace WawaEditor;
 public partial class Form1 : Form
 {
     private FindReplaceDialog _findReplaceDialog;
+    private ToolStripStatusLabel statusLabel;
 
     public Form1()
     {
         InitializeComponent();
         this.Text = "WawaEditor";
         
+        // 初始化状态栏
+        InitializeStatusBar();
+        
         // Add a new tab on startup
         AddNewTab();
+    }
+    
+    private void InitializeStatusBar()
+    {
+        // 创建状态栏标签
+        statusLabel = new ToolStripStatusLabel();
+        statusLabel.Text = "准备就绪";
+        statusLabel.Spring = true; // 自动调整大小
+        statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        
+        // 添加到状态栏
+        statusStrip.Items.Add(statusLabel);
     }
 
     private TextEditorTabPage GetCurrentTab()
@@ -31,6 +47,9 @@ public partial class Form1 : Form
             // Create tab first
             string title = string.IsNullOrEmpty(filePath) ? "Untitled" : Path.GetFileName(filePath);
             TextEditorTabPage tab = new TextEditorTabPage(title);
+            
+            // 注册状态栏更新事件
+            tab.OnStatusUpdate += UpdateStatusBar;
             
             // Add tab to control before loading content
             tabControl.TabPages.Add(tab);
@@ -71,6 +90,9 @@ public partial class Form1 : Form
                 tab.TextBox.Focus();
                 lineNumbersToolStripMenuItem.Checked = tab.ShowLineNumbers;
                 wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
+                
+                // 初始化状态栏信息
+                tab.UpdateStatusInfo();
             }
         }
         catch (Exception ex)
@@ -294,6 +316,9 @@ public partial class Form1 : Form
             // Update UI based on current tab settings
             wordWrapToolStripMenuItem.Checked = currentTab.TextBox.WordWrap;
             lineNumbersToolStripMenuItem.Checked = currentTab.ShowLineNumbers;
+            
+            // 更新状态栏信息
+            currentTab.UpdateStatusInfo();
         }
     }
 
@@ -325,6 +350,15 @@ public partial class Form1 : Form
         if (currentTab != null)
         {
             currentTab.ReplaceAll(searchText, replaceText, matchCase, wholeWord);
+        }
+    }
+    
+    // 更新状态栏信息
+    private void UpdateStatusBar(string statusText)
+    {
+        if (statusLabel != null && !string.IsNullOrEmpty(statusText))
+        {
+            statusLabel.Text = statusText;
         }
     }
 }
