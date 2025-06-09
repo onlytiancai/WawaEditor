@@ -87,7 +87,7 @@ namespace WawaEditor
             this.btnFindNext.UseVisualStyleBackColor = true;
             this.btnFindNext.Click += new EventHandler(btnFindNext_Click);
             
-            // btnReplace
+            // btnReplace - 只在替换模式下显示
             this.btnReplace.Location = new Point(290, 41);
             this.btnReplace.Name = "btnReplace";
             this.btnReplace.Size = new Size(75, 23);
@@ -95,7 +95,7 @@ namespace WawaEditor
             this.btnReplace.UseVisualStyleBackColor = true;
             this.btnReplace.Click += new EventHandler(btnReplace_Click);
             
-            // btnReplaceAll
+            // btnReplaceAll - 只在替换模式下显示
             this.btnReplaceAll.Location = new Point(290, 70);
             this.btnReplaceAll.Name = "btnReplaceAll";
             this.btnReplaceAll.Size = new Size(75, 23);

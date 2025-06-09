@@ -8,7 +8,7 @@ namespace WawaEditor
         public Panel? LineNumberPanel { get; private set; }
         public string? FilePath { get; set; } = string.Empty;
         public bool IsModified { get; set; }
-        public bool ShowLineNumbers { get; private set; } = true;
+        public bool ShowLineNumbers { get; private set; } = false;
         
         private int _lastLineCount = 0;
         private Stack<UndoRedoAction> _undoStack = new Stack<UndoRedoAction>();
@@ -28,6 +28,7 @@ namespace WawaEditor
                 Text = title;
                 FilePath = string.Empty;
                 IsModified = false;
+                ShowLineNumbers = false; // 默认不显示行号
 
                 // 先创建标准RichTextBox
                 TextBox = new FastTextBox();
@@ -37,13 +38,22 @@ namespace WawaEditor
                 TextBox.WordWrap = false;
                 TextBox.ScrollBars = RichTextBoxScrollBars.Both;
                 TextBox.Text = "";
+                
+                // 添加右键菜单
+                ContextMenuStrip contextMenu = new ContextMenuStrip();
+                contextMenu.Items.Add("剪切", null, (s, e) => TextBox.Cut());
+                contextMenu.Items.Add("复制", null, (s, e) => TextBox.Copy());
+                contextMenu.Items.Add("粘贴", null, (s, e) => TextBox.Paste());
+                contextMenu.Items.Add(new ToolStripSeparator());
+                contextMenu.Items.Add("全选", null, (s, e) => TextBox.SelectAll());
+                TextBox.ContextMenuStrip = contextMenu;
 
-                // 创建行号面板
+                // 创建行号面板，但默认不显示
                 LineNumberPanel = new Panel();
                 LineNumberPanel.Dock = DockStyle.Left;
                 LineNumberPanel.Width = _lineNumberWidth;
                 LineNumberPanel.BackColor = Color.LightGray;
-                LineNumberPanel.Visible = ShowLineNumbers;
+                LineNumberPanel.Visible = false; // 默认不显示
                 LineNumberPanel.Paint += LineNumberPanel_Paint;
 
                 // 创建简单计时器
@@ -204,8 +214,21 @@ namespace WawaEditor
         public void ToggleLineNumbers(bool show)
         {
             ShowLineNumbers = show;
+            System.Diagnostics.Debug.WriteLine($"切换行号显示: {show}");
+            
             if (LineNumberPanel != null)
+            {
                 LineNumberPanel.Visible = show;
+                
+                // 确保面板在正确的位置
+                if (LineNumberPanel.Parent != null && LineNumberPanel.Parent.Controls.Count > 0)
+                {
+                    // 确保行号面板在最上层
+                    LineNumberPanel.BringToFront();
+                }
+                
+                System.Diagnostics.Debug.WriteLine($"行号面板可见性: {LineNumberPanel.Visible}");
+            }
             
             if (show)
             {
@@ -334,7 +357,18 @@ namespace WawaEditor
         public void SetWordWrap(bool enabled)
         {
             if (TextBox != null)
+            {
+                // 先设置滚动条，再设置自动换行
+                if (enabled)
+                    TextBox.ScrollBars = RichTextBoxScrollBars.ForcedVertical;
+                else
+                    TextBox.ScrollBars = RichTextBoxScrollBars.Both;
+                
                 TextBox.WordWrap = enabled;
+                
+                // 输出调试信息
+                System.Diagnostics.Debug.WriteLine($"设置自动换行: {enabled}, 实际状态: {TextBox.WordWrap}");
+            }
         }
 
         public void SetFont(Font font)

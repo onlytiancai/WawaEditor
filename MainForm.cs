@@ -11,7 +11,12 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        this.Text = "WawaEditor";
+        
+        // 恢复正常窗体样式
+        this.FormBorderStyle = FormBorderStyle.Sizable;
+        
+        // 应用配置到UI
+        ApplyConfigToUI();
 
         // 初始化状态栏
         InitializeStatusBar();
@@ -21,6 +26,20 @@ public partial class MainForm : Form
 
         // 恢复上次打开的标签页或添加新标签页
         RestoreLastOpenedTabs();
+        
+        // 输出调试信息
+        System.Diagnostics.Debug.WriteLine($"配置加载: WordWrap={AppConfig.Instance.WordWrap}, ShowLineNumbers={AppConfig.Instance.ShowLineNumbers}, FontFamily={AppConfig.Instance.FontFamily}");
+    }
+    
+    // 应用配置到UI
+    private void ApplyConfigToUI()
+    {
+        // 输出配置信息
+        System.Diagnostics.Debug.WriteLine($"应用配置: WordWrap={AppConfig.Instance.WordWrap}, ShowLineNumbers={AppConfig.Instance.ShowLineNumbers}");
+        
+        // 应用配置到菜单项
+        wordWrapToolStripMenuItem.Checked = AppConfig.Instance.WordWrap;
+        lineNumbersToolStripMenuItem.Checked = AppConfig.Instance.ShowLineNumbers;
     }
 
     // 窗口关闭前保存配置
@@ -30,6 +49,15 @@ public partial class MainForm : Form
 
         // 保存当前打开的标签页
         SaveOpenTabs();
+        
+        // 保存当前字体设置
+        TextEditorTabPage currentTab = GetCurrentTab();
+        if (currentTab != null && currentTab.TextBox != null)
+        {
+            AppConfig.Instance.FontFamily = currentTab.TextBox.Font.FontFamily.Name;
+            AppConfig.Instance.FontSize = currentTab.TextBox.Font.Size;
+            AppConfig.Instance.Save();
+        }
     }
 
     private void InitializeStatusBar()
@@ -100,10 +128,34 @@ public partial class MainForm : Form
             // Update UI settings
             if (tab != null && tab.TextBox != null)
             {
-                tab.TextBox.Focus();
-                lineNumbersToolStripMenuItem.Checked = tab.ShowLineNumbers;
+                // 应用全局设置
+                tab.SetWordWrap(AppConfig.Instance.WordWrap);
+                tab.ToggleLineNumbers(AppConfig.Instance.ShowLineNumbers);
+                
+                // 应用字体设置 - 确保使用正确的字体
+                try
+                {
+                    string fontFamily = AppConfig.Instance.FontFamily;
+                    float fontSize = AppConfig.Instance.FontSize;
+                    
+                    // 确保字体设置有效
+                    if (!string.IsNullOrEmpty(fontFamily) && fontSize > 0)
+                    {
+                        Font font = new Font(fontFamily, fontSize);
+                        tab.SetFont(font);
+                    }
+                }
+                catch (Exception ex) 
+                { 
+                    System.Diagnostics.Debug.WriteLine($"字体设置错误: {ex.Message}");
+                }
+                
+                // 更新菜单状态
                 wordWrapToolStripMenuItem.Checked = tab.TextBox.WordWrap;
-
+                lineNumbersToolStripMenuItem.Checked = tab.ShowLineNumbers;
+                
+                tab.TextBox.Focus();
+                
                 // 初始化状态栏信息
                 tab.UpdateStatusInfo();
             }
@@ -239,30 +291,62 @@ public partial class MainForm : Form
             fontDialog.Font = currentTab.TextBox.Font;
             if (fontDialog.ShowDialog() == DialogResult.OK)
             {
-                currentTab.SetFont(fontDialog.Font);
+                // 保存字体设置到配置
+                AppConfig.Instance.FontFamily = fontDialog.Font.FontFamily.Name;
+                AppConfig.Instance.FontSize = fontDialog.Font.Size;
+                AppConfig.Instance.Save();
+                
+                // 应用到所有标签页
+                foreach (TabPage tabPage in tabControl.TabPages)
+                {
+                    if (tabPage is TextEditorTabPage tab)
+                    {
+                        tab.SetFont(fontDialog.Font);
+                    }
+                }
             }
         }
     }
 
     private void wordWrapToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        wordWrapToolStripMenuItem.Checked = !wordWrapToolStripMenuItem.Checked;
+        bool newState = !wordWrapToolStripMenuItem.Checked;
+        wordWrapToolStripMenuItem.Checked = newState;
+        
+        System.Diagnostics.Debug.WriteLine($"切换自动换行: {newState}");
+        
+        // 保存设置到配置
+        AppConfig.Instance.WordWrap = newState;
+        AppConfig.Instance.Save();
 
-        TextEditorTabPage currentTab = GetCurrentTab();
-        if (currentTab != null)
+        // 应用到所有标签页
+        foreach (TabPage tabPage in tabControl.TabPages)
         {
-            currentTab.SetWordWrap(wordWrapToolStripMenuItem.Checked);
+            if (tabPage is TextEditorTabPage tab)
+            {
+                tab.SetWordWrap(newState);
+            }
         }
     }
 
     private void lineNumbersToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        lineNumbersToolStripMenuItem.Checked = !lineNumbersToolStripMenuItem.Checked;
+        bool newState = !lineNumbersToolStripMenuItem.Checked;
+        lineNumbersToolStripMenuItem.Checked = newState;
+        
+        System.Diagnostics.Debug.WriteLine($"切换行号显示: {newState}");
+        
+        // 保存设置到配置
+        AppConfig.Instance.ShowLineNumbers = newState;
+        AppConfig.Instance.Save();
 
-        TextEditorTabPage currentTab = GetCurrentTab();
-        if (currentTab != null)
+        // 应用到所有标签页
+        foreach (TabPage tabPage in tabControl.TabPages)
         {
-            currentTab.ToggleLineNumbers(lineNumbersToolStripMenuItem.Checked);
+            if (tabPage is TextEditorTabPage tab)
+            {
+                tab.ToggleLineNumbers(newState);
+            }
         }
     }
 
@@ -346,6 +430,44 @@ public partial class MainForm : Form
 
             // 更新状态栏信息
             currentTab.UpdateStatusInfo();
+        }
+    }
+    
+    // 添加标签页右键菜单
+    private void tabControl_MouseClick(object sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Right)
+        {
+            // 获取点击的标签页
+            for (int i = 0; i < tabControl.TabPages.Count; i++)
+            {
+                Rectangle rect = tabControl.GetTabRect(i);
+                if (rect.Contains(e.Location))
+                {
+                    // 创建右键菜单
+                    ContextMenuStrip contextMenu = new ContextMenuStrip();
+                    
+                    // 保存菜单项
+                    ToolStripMenuItem saveMenuItem = new ToolStripMenuItem("保存");
+                    saveMenuItem.Click += (s, args) => {
+                        tabControl.SelectedIndex = i;
+                        saveToolStripMenuItem_Click(s, args);
+                    };
+                    contextMenu.Items.Add(saveMenuItem);
+                    
+                    // 关闭菜单项
+                    ToolStripMenuItem closeMenuItem = new ToolStripMenuItem("关闭");
+                    closeMenuItem.Click += (s, args) => {
+                        tabControl.SelectedIndex = i;
+                        closeTabToolStripMenuItem_Click(s, args);
+                    };
+                    contextMenu.Items.Add(closeMenuItem);
+                    
+                    // 显示菜单
+                    contextMenu.Show(tabControl, e.Location);
+                    break;
+                }
+            }
         }
     }
 
@@ -452,17 +574,32 @@ public partial class MainForm : Form
     // 保存当前打开的标签页
     private void SaveOpenTabs()
     {
-        AppConfig.Instance.LastOpenedTabs.Clear();
+        // 确保LastOpenedTabs已初始化
+        if (AppConfig.Instance.LastOpenedTabs == null)
+            AppConfig.Instance.LastOpenedTabs = new List<string>();
+        else
+            AppConfig.Instance.LastOpenedTabs.Clear();
         
+        // 保存当前打开的标签页
         foreach (TabPage tabPage in tabControl.TabPages)
         {
             if (tabPage is TextEditorTabPage tab && !string.IsNullOrEmpty(tab.FilePath) && File.Exists(tab.FilePath))
             {
                 AppConfig.Instance.LastOpenedTabs.Add(tab.FilePath);
+                System.Diagnostics.Debug.WriteLine($"保存标签页: {tab.FilePath}");
             }
         }
         
-        AppConfig.Instance.Save();
+        // 保存配置
+        try
+        {
+            AppConfig.Instance.Save();
+            System.Diagnostics.Debug.WriteLine($"配置保存成功，共保存了 {AppConfig.Instance.LastOpenedTabs.Count} 个标签页");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"配置保存失败: {ex.Message}");
+        }
     }
     
     // 恢复上次打开的标签页
@@ -470,13 +607,17 @@ public partial class MainForm : Form
     {
         bool tabsRestored = false;
         
-        // 尝试恢复上次打开的标签页
-        foreach (string filePath in AppConfig.Instance.LastOpenedTabs)
+        // 确保配置中有上次打开的标签页
+        if (AppConfig.Instance.LastOpenedTabs != null && AppConfig.Instance.LastOpenedTabs.Count > 0)
         {
-            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            // 尝试恢复上次打开的标签页
+            foreach (string filePath in AppConfig.Instance.LastOpenedTabs)
             {
-                AddNewTab(filePath);
-                tabsRestored = true;
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    AddNewTab(filePath);
+                    tabsRestored = true;
+                }
             }
         }
         
